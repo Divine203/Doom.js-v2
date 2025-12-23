@@ -1,0 +1,428 @@
+const c = document.querySelector('#c');
+const ctx = c.getContext('2d');
+
+const SCALE = 6;
+
+ctx.imageSmoothingEnabled = false;
+
+const W = c.width / SCALE;
+const H = c.height / SCALE;
+
+const buffer = document.createElement('canvas');
+buffer.width = W;
+buffer.height = H;
+const bctx = buffer.getContext('2d');
+
+const imageData = bctx.createImageData(W, H);
+const pixels = imageData.data;
+
+function putPixel(x, y, r, g, b) {
+    if (x < 0 || x >= W || y < 0 || y >= H) return;
+    const i = (y * W + x) * 4;
+    pixels[i] = r;
+    pixels[i + 1] = g;
+    pixels[i + 2] = b;
+    pixels[i + 3] = 255;
+}
+
+function clamp(num, min, max) {
+    return Math.min(Math.max(num, min), max);
+}
+
+const pointInSector = (sector, px, py) => {
+    let count = 0;
+    for (let wall of sector.walls) {
+        let { x1, y1, x2, y2 } = wall;
+        if (((y1 > py) != (y2 > py)) &&
+            (px < ((x2 - x1) * (py - y1)) / (y2 - y1) + x1)) {
+            count++;
+        }
+    }
+    return (count % 2) === 1;
+}
+
+const drawLine = (x1, y1, x2, y2, r = 255, g = 255, b = 255) => {
+    let x0_ = x1;
+    let y0_ = y1;
+    let x1_ = x2;
+    let y1_ = y2;
+
+    let dx = Math.abs(x1_ - x0_);
+    let dy = -Math.abs(y1_ - y0_);
+    let sx = x0_ < x1_ ? 1 : -1;
+    let sy = y0_ < y1_ ? 1 : -1;
+    let err = dx + dy;
+
+    while (true) {
+        putPixel(x0_, y0_, r, g, b);
+        if (x0_ === x1_ && y0_ === y1_) break;
+
+        const e2 = err << 1;
+        if (e2 >= dy) { err += dy; x0_ += sx; }
+        if (e2 <= dx) { err += dx; y0_ += sy; }
+    }
+}
+
+const drawRect = (cx, cy, w, h, angle = 0, r = 255, g = 255, b = 255) => {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+
+    const hw = w / 2;
+    const hh = h / 2;
+
+    const corners = [
+        { x: -hw, y: -hh },
+        { x: hw, y: -hh },
+        { x: hw, y: hh },
+        { x: -hw, y: hh },
+    ];
+
+    const rotated = corners.map(p => ({
+        x: Math.round(cx + p.x * cos - p.y * sin),
+        y: Math.round(cy + p.x * sin + p.y * cos),
+    }));
+
+    for (let i = 0; i < 4; i++) {
+        const next = (i + 1) % 4;
+        drawLine(rotated[i].x, rotated[i].y, rotated[next].x, rotated[next].y, r, g, b);
+    }
+};
+
+
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+
+        this.velX = 0;
+        this.velY = 0;
+
+        this.canMoveForward = true;
+        this.canMoveBack = true;
+
+        this.eyeLevel = -40;
+
+        this.rotVel = 0;
+        this.speed = 2.5;
+        this.rotSpeed = 2;
+        this.dx = 0;
+        this.dy = 0;
+        this.angle = 90;
+        this.w = 4;
+        this.h = 4;
+        this.FOV = 66;
+        this.currentSector;
+        this.lastSector;
+        this.offsetAngles = Array.from({ length: 2 }, (v, k) => (k * (this.FOV / 2) - (this.FOV / 2))); // [1, 90]
+    }
+
+    drawFov() {
+        const centerX = Math.round(this.x + this.w / 2);
+        const centerY = Math.round(this.y + this.h / 2);
+
+        for (let r of this.offsetAngles) {
+            const totalAngle = (this.angle + r) * Math.PI / 180;
+            const lineX = Math.round(centerX + Math.sin(totalAngle) * 40);
+            const lineY = Math.round(centerY - Math.cos(totalAngle) * 40);
+
+            drawLine(centerX, centerY, lineX, lineY, 255, 255, 0);
+        }
+
+    }
+
+    draw() {
+        let angleInRad = this.angle * Math.PI / 180;
+        drawRect(this.x + this.w / 2, this.y + this.h / 2, this.w, this.h, angleInRad, 255, 0, 0);
+    }
+
+
+    movement() {
+        const angleInRad = this.angle * (Math.PI / 180);
+        this.dx = Math.sin(angleInRad) * this.speed;
+        this.dy = -Math.cos(angleInRad) * this.speed;
+
+        if (K.u) {
+            if (this.canMoveForward) {
+                this.x += this.dx;
+                this.y += this.dy;
+                this.getCurrectSector();
+            }
+        } else if (K.d) {
+            if (this.canMoveBack) {
+                this.x += -this.dx;
+                this.y += -this.dy;
+                this.getCurrectSector();
+            }
+        }
+        if (K.l) {
+            this.rotVel = -this.rotSpeed;
+        } else if (K.r) {
+            this.rotVel = this.rotSpeed;
+        } else {
+            this.dx = 0;
+            this.dy = 0;
+            this.rotVel = 0;
+        }
+
+        this.angle += this.rotVel;
+    }
+
+    getCurrectSector() {
+        let found = false;
+
+        for (let i = 0; i < sectors.length; i++) {
+            if (pointInSector(sectors[i], this.x, this.y)) {
+                this.currentSector = sectors[i];
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            this.currentSector = this.lastSector;
+        }
+
+        this.lastSector = this.currentSector;
+    }
+
+
+    update() {
+        this.draw();
+        this.drawFov();
+    }
+}
+
+class Line {
+    constructor(x1, y1, x2, y2, isPortal, neighbor, r = 0, g = 255, b = 255) {
+        this.x1 = x1 | 0;
+        this.y1 = y1 | 0;
+        this.x2 = x2 | 0;
+        this.y2 = y2 | 0;
+        this.r = r;
+        this.g = g;
+        this.b = b;
+
+        this.sector;
+
+        this.isPortal = isPortal;
+        this.neighbor = neighbor;
+
+        this.wh = 50;
+    }
+
+    draw() {
+        drawLine(this.x1, this.y1, this.x2, this.y2, this.r, this.g, this.b);
+    }
+}
+
+
+class Sector {
+    constructor(fh, ch, walls, neighbors = []) {
+        this.fh = fh;
+        this.ch = ch;
+        this.walls = walls;
+        this.neighbors = neighbors;
+    }
+
+    assignSectorToWalls() {
+        for (let w of this.walls) {
+            w.sector = this;
+        }
+    }
+}
+
+
+const scale = 8;
+const p = new Player(10, 10);
+const sector1 = new Sector(0, 130, []); // Normal room
+const sector2 = new Sector(-10, 100, []); // Raised platform
+
+const l1 = new Line(20, 15, 30, 5);
+const l2 = new Line(30, 5, 50, 5);
+const l3 = new Line(50, 5, 60, 15);
+const l4 = new Line(60, 15, 55, 30);
+const l5 = new Line(55, 30, 30, 30, true, sector2);
+const l6 = new Line(30, 30, 20, 15);
+
+sector1.walls = [l1, l2, l3, l4, l5, l6];
+
+const l7 = new Line(55, 30, 65, 40);
+const l8 = new Line(65, 40, 60, 55);
+const l9 = new Line(60, 55, 30, 55);
+const l10 = new Line(30, 55, 20, 45);
+const l11 = new Line(20, 45, 30, 30);
+const l5b = new Line(30, 30, 55, 30, true, sector1); // backref to sector1
+
+sector2.walls = [l5b, l7, l8, l9, l10, l11];
+
+const map = [
+    l1, l2, l3, l4, l5, l6,
+    l7, l8, l9, l10, l11
+];
+
+let minX = Infinity;
+let minY = Infinity;
+
+map.forEach(line => {
+    minX = Math.min(minX, line.x1, line.x2);
+    minY = Math.min(minY, line.y1, line.y2);
+});
+
+map.forEach(line => {
+    line.x1 = (line.x1 - minX) * scale;
+    line.y1 = (line.y1 - minY) * scale;
+    line.x2 = (line.x2 - minX) * scale;
+    line.y2 = (line.y2 - minY) * scale;
+});
+const sectors = [sector1, sector2];
+
+sectors.forEach(sector => { sector.assignSectorToWalls(); })
+
+const clampNRound = (val) => {
+    return clamp(Math.round(val), -900, 1000);
+}
+
+class Project3D {
+    constructor() {
+        this.fovInRad = p.FOV * (Math.PI / 180);
+        this.halfSW = W / 2;
+        this.fovFactor = this.halfSW / Math.tan(this.fovInRad / 2);
+        this.NEAR = 0.01;
+    }
+
+    drawVertex(x, y) {
+        putPixel(x, y, 255, 255, 255);
+    }
+
+
+    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom) {
+        drawLine(x1, y1Top, x1, y1Bottom, 255, 255, 255);
+        drawLine(x1, y1Bottom, x2, y2Bottom, 255, 255, 255);
+        drawLine(x2, y2Bottom, x2, y2Top, 255, 255, 255);
+        drawLine(x2, y2Top, x1, y1Top, 255, 255, 255);
+    }
+
+    normalizeAngle(angle) {
+        return Math.atan2(Math.sin(angle), Math.cos(angle)); // Keeps it between -π and π
+    }
+
+    project() {
+        if (!p.currentSector) return;
+        const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
+
+        for (let l of map) {
+            const currentSector = l.sector;
+            const fh = currentSector.fh;
+            const ch = currentSector.ch;
+            const wh = ch - fh;
+
+            let dx1 = l.x1 - p.x;
+            let dy1 = l.y1 - p.y;
+            let dx2 = l.x2 - p.x;
+            let dy2 = l.y2 - p.y;
+
+            let angleInRad = p.angle * (Math.PI / 180);
+
+            let rx1 = dx1 * Math.cos(angleInRad) + dy1 * Math.sin(angleInRad);
+            let ry1 = dx1 * Math.sin(angleInRad) - dy1 * Math.cos(angleInRad);
+            let rx2 = dx2 * Math.cos(angleInRad) + dy2 * Math.sin(angleInRad);
+            let ry2 = dx2 * Math.sin(angleInRad) - dy2 * Math.cos(angleInRad);
+
+            ry1 = Math.max(ry1, 0.0001);
+            ry2 = Math.max(ry2, 0.0001);
+
+            let sx1 = (rx1 * this.fovFactor) / ry1;
+            let sx2 = (rx2 * this.fovFactor) / ry2;
+
+            let screenX1 = clampNRound(this.halfSW + sx1);
+            let screenX2 = clampNRound(this.halfSW + sx2);
+
+            // Correct Y center for each endpoint
+            let screenY1 = clampNRound((H / 2) + ((fh - eyeHeightInWorld) * this.fovFactor) / ry1);
+            let screenY2 = clampNRound((H / 2) + ((fh - eyeHeightInWorld) * this.fovFactor) / ry2);
+
+            let projH1 = (wh * this.fovFactor) / ry1;
+            let projH2 = (wh * this.fovFactor) / ry2;
+
+
+            let sy1T = clampNRound((H / 2) - (projH1 / 2));
+            let sy1B = screenY1;
+
+            let sy2T = clampNRound((H / 2) - (projH2 / 2));
+            let sy2B = screenY2;
+
+
+            if (l.isPortal) {
+                const nSector = l.neighbor;
+                const nFh = nSector.fh;
+                const nCh = nSector.ch;
+                const nWh = nCh - nFh;
+
+                let curCeil1 = sy1T;
+                let curCeil2 = sy2T;
+
+                let curFloor1 = screenY1;
+                let curFloor2 = screenY2;
+
+
+                let neighFloor1 = clampNRound(
+                    (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry1
+                );
+                let neighFloor2 = clampNRound(
+                    (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry2
+                );
+
+                let nProjH1 = (nWh * this.fovFactor) / ry1;
+                let nProjH2 = (nWh * this.fovFactor) / ry2;
+
+                let neighCeil1 = clampNRound((H / 2) - (nProjH1 / 2));
+                let neighCeil2 = clampNRound((H / 2) - (nProjH2 / 2));
+
+
+                if(nFh < fh) {
+                    this.drawWall(screenX1, neighFloor1, curFloor1, screenX2, neighFloor2, curFloor2);
+                }
+                if(nCh < ch) {
+                    this.drawWall(screenX1, neighCeil1, curCeil1, screenX2, neighCeil2, curCeil2);
+                    
+                }
+
+            } else {
+                this.drawWall(screenX1, sy1T, sy1B, screenX2, sy2T, sy2B);
+            }
+        }
+    }
+}
+
+
+const project3D = new Project3D();
+
+
+const update = () => {
+    p.movement();
+
+    if (!is3D) {
+        p.update();
+        map.forEach((l) => { l.draw() });
+    } else {
+        project3D.project();
+    }
+}
+
+const render = () => {
+    pixels.fill(0);
+
+    update();
+
+    bctx.putImageData(imageData, 0, 0);
+
+    ctx.clearRect(0, 0, c.width, c.height);
+    ctx.drawImage(buffer, 0, 0, W * SCALE, H * SCALE);
+};
+
+function engine() {
+    render();
+    requestAnimationFrame(engine);
+}
+
+requestAnimationFrame(engine);
