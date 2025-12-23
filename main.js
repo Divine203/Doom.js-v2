@@ -25,6 +25,32 @@ function putPixel(x, y, r, g, b) {
     pixels[i + 3] = 255;
 }
 
+const findIntersection = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (denom === 0) {
+        return null; // lines are parallel or coincident
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        const intersectionX = x1 + t * (x2 - x1);
+        const intersectionY = y1 + t * (y2 - y1);
+
+        return { x: intersectionX, y: intersectionY };
+    }
+
+    return null; // No intersection
+}
+
+const calcEndPoint = (x1, y1, d, angleInRadians) => {
+    let x2 = (x1 + d * Math.cos(angleInRadians));
+    let y2 = (y1 + d * Math.sin(angleInRadians));
+
+    return { x2, y2 };
+}
+
 function clamp(num, min, max) {
     return Math.min(Math.max(num, min), max);
 }
@@ -88,7 +114,6 @@ const drawRect = (cx, cy, w, h, angle = 0, r = 255, g = 255, b = 255) => {
     }
 };
 
-
 class Player {
     constructor(x, y) {
         this.x = x;
@@ -99,6 +124,8 @@ class Player {
 
         this.canMoveForward = true;
         this.canMoveBack = true;
+
+        this.isMoving = false;
 
         this.eyeLevel = -40;
 
@@ -111,9 +138,28 @@ class Player {
         this.w = 4;
         this.h = 4;
         this.FOV = 66;
+        this.rayLength = 900;
+        this.numRays = 17;
         this.currentSector;
         this.lastSector;
-        this.offsetAngles = Array.from({ length: 2 }, (v, k) => (k * (this.FOV / 2) - (this.FOV / 2))); // [1, 90]
+        this.offsetAngles = Array.from({ length: this.numRays }, (v, k) => (k * (this.FOV / this.numRays) - (this.FOV / 2))); // [1, 90]
+        this.raysCoordinates = []; //{x1, y1, x2, y2}
+    }
+
+    prepRayPoints() {
+        for (let i = 0; i < this.offsetAngles.length; i++) {
+            let { x1, y1, x2, y2 } = this.calcRayPoint(this.offsetAngles[i], this.rayLength);
+            this.raysCoordinates[i] = { x1, y1, x2, y2 };
+        }
+    }
+
+    calcRayPoint(rayOffsetAngle, rayLenth) {
+        let x1 = this.x + this.w / 2;
+        let y1 = this.y + this.h / 2;
+
+        let { x2, y2 } = calcEndPoint(x1, y1, rayLenth, ((rayOffsetAngle + (this.angle - 90)) * (Math.PI / 180))); // convert angle to radians 
+
+        return { x1, y1, x2, y2 };
     }
 
     drawFov() {
@@ -122,19 +168,17 @@ class Player {
 
         for (let r of this.offsetAngles) {
             const totalAngle = (this.angle + r) * Math.PI / 180;
-            const lineX = Math.round(centerX + Math.sin(totalAngle) * 40);
-            const lineY = Math.round(centerY - Math.cos(totalAngle) * 40);
+            const lineX = Math.round(centerX + Math.sin(totalAngle) * this.rayLength);
+            const lineY = Math.round(centerY - Math.cos(totalAngle) * this.rayLength);
 
             drawLine(centerX, centerY, lineX, lineY, 255, 255, 0);
         }
-
     }
 
     draw() {
         let angleInRad = this.angle * Math.PI / 180;
         drawRect(this.x + this.w / 2, this.y + this.h / 2, this.w, this.h, angleInRad, 255, 0, 0);
     }
-
 
     movement() {
         const angleInRad = this.angle * (Math.PI / 180);
@@ -143,20 +187,24 @@ class Player {
 
         if (K.u) {
             if (this.canMoveForward) {
+                this.isMoving = true;
                 this.x += this.dx;
                 this.y += this.dy;
                 this.getCurrectSector();
             }
         } else if (K.d) {
             if (this.canMoveBack) {
+                this.isMoving = true;
                 this.x += -this.dx;
                 this.y += -this.dy;
                 this.getCurrectSector();
             }
         }
         if (K.l) {
+            this.isMoving = true;
             this.rotVel = -this.rotSpeed;
         } else if (K.r) {
+            this.isMoving = true;
             this.rotVel = this.rotSpeed;
         } else {
             this.dx = 0;
@@ -193,7 +241,7 @@ class Player {
 }
 
 class Line {
-    constructor(x1, y1, x2, y2, isPortal, neighbor, r = 0, g = 255, b = 255) {
+    constructor(x1, y1, x2, y2, isPortal, neighbor, r = null, g = null, b = null) {
         this.x1 = x1 | 0;
         this.y1 = y1 | 0;
         this.x2 = x2 | 0;
@@ -208,10 +256,31 @@ class Line {
         this.neighbor = neighbor;
 
         this.wh = 50;
+
+        this.isVisible = false;
+
+        // Default random-ish color if none provided
+        this.r = r ?? Math.random() * 200 + 50;
+        this.g = g ?? Math.random() * 200 + 50;
+        this.b = b ?? Math.random() * 200 + 50;
     }
 
     draw() {
         drawLine(this.x1, this.y1, this.x2, this.y2, this.r, this.g, this.b);
+    }
+
+    checkIfVisible() {
+        this.isVisible = false; // reset at start
+
+        for (let i = 0; i < p.raysCoordinates.length; i++) {
+            const rc = p.raysCoordinates[i];
+            const intersectionP = findIntersection(rc.x1, rc.y1, rc.x2, rc.y2, this.x1, this.y1, this.x2, this.y2);
+
+            if (intersectionP) {
+                this.isVisible = true;
+                break;
+            }
+        }
     }
 }
 
@@ -295,20 +364,46 @@ class Project3D {
     }
 
 
-    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom) {
-        drawLine(x1, y1Top, x1, y1Bottom, 255, 255, 255);
-        drawLine(x1, y1Bottom, x2, y2Bottom, 255, 255, 255);
-        drawLine(x2, y2Bottom, x2, y2Top, 255, 255, 255);
-        drawLine(x2, y2Top, x1, y1Top, 255, 255, 255);
+    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, r, g, b) {
+        drawLine(x1, y1Top, x1, y1Bottom, r, g, b);
+        drawLine(x1, y1Bottom, x2, y2Bottom, r, g, b);
+        drawLine(x2, y2Bottom, x2, y2Top, r, g, b);
+        drawLine(x2, y2Top, x1, y1Top, r, g, b);
     }
 
     normalizeAngle(angle) {
         return Math.atan2(Math.sin(angle), Math.cos(angle)); // Keeps it between -π and π
     }
 
+    getVisibleWalls() {
+        const visibleWalls = map;
+
+        visibleWalls.sort((a, b) => {
+            const dzA = this.getWallDepth(a);
+            const dzB = this.getWallDepth(b);
+            return dzB - dzA;
+        });
+
+        return visibleWalls.filter(l => (l.isVisible));
+    }
+
+    getWallDepth(wall) {
+        const mx = (wall.x1 + wall.x2) / 2 - p.x;
+        const my = (wall.y1 + wall.y2) / 2 - p.y;
+
+        const angleRad = p.angle * Math.PI / 180;
+        const sin = Math.sin(angleRad);
+        const cos = Math.cos(angleRad);
+
+        const ry = mx * sin - my * cos; // this is Z in camera space (forward direction)
+        return ry;
+    }
+
     project() {
         if (!p.currentSector) return;
         const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
+
+        const visibleWalls = this.getVisibleWalls();
 
         for (let l of map) {
             const currentSector = l.sector;
@@ -351,44 +446,47 @@ class Project3D {
             let sy2T = clampNRound((H / 2) - (projH2 / 2));
             let sy2B = screenY2;
 
-
-            if (l.isPortal) {
-                const nSector = l.neighbor;
-                const nFh = nSector.fh;
-                const nCh = nSector.ch;
-                const nWh = nCh - nFh;
-
-                let curCeil1 = sy1T;
-                let curCeil2 = sy2T;
-
-                let curFloor1 = screenY1;
-                let curFloor2 = screenY2;
+            // console.log(visibleWalls);
 
 
-                let neighFloor1 = clampNRound(
-                    (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry1
-                );
-                let neighFloor2 = clampNRound(
-                    (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry2
-                );
+            if (visibleWalls.includes(l)) {
+                if (l.isPortal) {
+                    const nSector = l.neighbor;
+                    const nFh = nSector.fh;
+                    const nCh = nSector.ch;
+                    const nWh = nCh - nFh;
 
-                let nProjH1 = (nWh * this.fovFactor) / ry1;
-                let nProjH2 = (nWh * this.fovFactor) / ry2;
+                    let curCeil1 = sy1T;
+                    let curCeil2 = sy2T;
 
-                let neighCeil1 = clampNRound((H / 2) - (nProjH1 / 2));
-                let neighCeil2 = clampNRound((H / 2) - (nProjH2 / 2));
+                    let curFloor1 = screenY1;
+                    let curFloor2 = screenY2;
+
+                    let neighFloor1 = clampNRound(
+                        (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry1
+                    );
+                    let neighFloor2 = clampNRound(
+                        (H / 2) + ((nFh - eyeHeightInWorld) * this.fovFactor) / ry2
+                    );
+
+                    let nProjH1 = (nWh * this.fovFactor) / ry1;
+                    let nProjH2 = (nWh * this.fovFactor) / ry2;
+
+                    let neighCeil1 = clampNRound((H / 2) - (nProjH1 / 2));
+                    let neighCeil2 = clampNRound((H / 2) - (nProjH2 / 2));
 
 
-                if(nFh < fh) {
-                    this.drawWall(screenX1, neighFloor1, curFloor1, screenX2, neighFloor2, curFloor2);
+                    if (nFh < fh) {
+                        this.drawWall(screenX1, neighFloor1, curFloor1, screenX2, neighFloor2, curFloor2, l.r, l.g, l.b);
+                    }
+                    if (nCh < ch) {
+                        this.drawWall(screenX1, neighCeil1, curCeil1, screenX2, neighCeil2, curCeil2, l.r, l.g, l.b);
+
+                    }
+
+                } else {
+                    this.drawWall(screenX1, sy1T, sy1B, screenX2, sy2T, sy2B, l.r, l.g, l.b);
                 }
-                if(nCh < ch) {
-                    this.drawWall(screenX1, neighCeil1, curCeil1, screenX2, neighCeil2, curCeil2);
-                    
-                }
-
-            } else {
-                this.drawWall(screenX1, sy1T, sy1B, screenX2, sy2T, sy2B);
             }
         }
     }
@@ -400,6 +498,10 @@ const project3D = new Project3D();
 
 const update = () => {
     p.movement();
+    if (p.isMoving) {
+        map.forEach((l) => { l.checkIfVisible() });
+    }
+    p.prepRayPoints();
 
     if (!is3D) {
         p.update();
@@ -407,6 +509,7 @@ const update = () => {
     } else {
         project3D.project();
     }
+
 }
 
 const render = () => {
