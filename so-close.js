@@ -321,7 +321,7 @@ class Sector {
 const scale = 8;
 const p = new Player(10, 10);
 const sector1 = new Sector(0, 130, []); // Normal room
-const sector2 = new Sector(20, 100, []); // Raised platform
+const sector2 = new Sector(-10, 100, []); // Raised platform
 
 const l1 = new Line(20, 15, 30, 5);
 const l2 = new Line(30, 5, 50, 5);
@@ -417,11 +417,9 @@ class Project3D {
 
             if (bottom <= top) continue;
 
-            // // Only skip for opaque walls
-            // if (!isPortal && depth >= zBuffer[x]) continue;
-            // if (!isPortal) zBuffer[x] = depth;
-            if (depth >= zBuffer[x]) continue;
-            zBuffer[x] = depth;
+            // Only skip for opaque walls
+            if (!isPortal && depth >= zBuffer[x]) continue;
+            if (!isPortal) zBuffer[x] = depth;
 
             const colHeight = bottom - top;
             const vStep = texture.height / colHeight;
@@ -716,6 +714,7 @@ class Project3D {
                     if (nCh > ch) {
                         this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
                     }
+
                 } else {
                     this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
                 }
@@ -728,7 +727,7 @@ class Project3D {
 const project3D = new Project3D();
 
 function markVisibleWalls(sector, fromPortal = null) {
-    if (!sector) return;
+    if(!sector) return;
     for (let wall of sector.walls) {
         wall.isVisible = true;
 
@@ -772,14 +771,6 @@ const render = (currentTime) => {
 
     if (deltaTime > 0) {
         fps = R(1000 / deltaTime);
-
-        if (fps <= 30) {
-            p.speed = 5;
-            p.rotSpeed = 4;
-        } else {
-            p.speed = 2.5;
-            p.rotSpeed = 2;
-        }
     }
 
     writeUI();
@@ -790,4 +781,4 @@ function engine(currentTime) {
     requestAnimationFrame(engine);
 }
 
-requestAnimationFrame(engine);  
+requestAnimationFrame(engine);

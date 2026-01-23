@@ -8,9 +8,6 @@ ctx.imageSmoothingEnabled = false;
 const W = c.width / SCALE;
 const H = c.height / SCALE;
 
-let lastTime = 0;
-let fps = 0;
-
 const buffer = document.createElement('canvas');
 buffer.width = W;
 buffer.height = H;
@@ -18,14 +15,6 @@ const bctx = buffer.getContext('2d');
 
 const imageData = bctx.createImageData(W, H);
 const pixels = imageData.data;
-
-let zBuffer = new Float32Array(W * H);
-
-function writeUI() {
-    ctx.fillStyle = 'white';
-    ctx.font = `13px consolas`
-    ctx.fillText(`FPS: ${fps}`, 10, 16);
-}
 
 function putPixel(x, y, r, g, b) {
     if (x < 0 || x >= W || y < 0 || y >= H) return;
@@ -36,38 +25,24 @@ function putPixel(x, y, r, g, b) {
     pixels[i + 3] = 255;
 }
 
-function putPixelZ(x, y, z, r, g, b) {
-    if (x < 0 || x >= W || y < 0 || y >= H) return;
-    const idx = y * W + x;
-    if (z >= project3D.zBuffer[idx]) return; // skip if farther
-    project3D.zBuffer[idx] = z;
+const findIntersection = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (denom === 0) {
+        return null; // lines are parallel or coincident
+    }
 
-    const i = idx * 4;
-    pixels[i] = r;
-    pixels[i + 1] = g;
-    pixels[i + 2] = b;
-    pixels[i + 3] = 255;
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        const intersectionX = x1 + t * (x2 - x1);
+        const intersectionY = y1 + t * (y2 - y1);
+
+        return { x: intersectionX, y: intersectionY };
+    }
+
+    return null; // No intersection
 }
-
-function loadTexture(img) {
-    const c = document.createElement('canvas');
-    c.width = img.width;
-    c.height = img.height;
-    const cx = c.getContext('2d');
-    cx.drawImage(img, 0, 0);
-    return cx.getImageData(0, 0, img.width, img.height);
-}
-
-const wallTexImg = new Image();
-wallTexImg.src = './resource/doom-wall.png';
-const ceilTexImg = new Image();
-ceilTexImg.src = './resource/doom-ceiling.png';
-const floorTexImg = new Image();
-floorTexImg.src = './resource/floor2.jpg';
-
-let WALL_TEX;
-let FLOOR_TEX;
-let CEIL_TEX;
 
 const calcEndPoint = (x1, y1, d, angleInRadians) => {
     let x2 = (x1 + d * Math.cos(angleInRadians));
@@ -163,8 +138,8 @@ class Player {
         this.angle = 90;
         this.w = 4;
         this.h = 4;
-        this.FOV = 90;
-        this.rayLength = 550;
+        this.FOV = 66;
+        this.rayLength = 900;
         this.numRays = 17;
         this.currentSector;
         this.lastSector;
@@ -289,12 +264,24 @@ class Line {
         this.r = r ?? R(Math.random() * 200 + 50);
         this.g = g ?? R(Math.random() * 200 + 50);
         this.b = b ?? R(Math.random() * 200 + 50);
-
-        this.texture = WALL_TEX;
     }
 
     draw() {
         drawLine(this.x1, this.y1, this.x2, this.y2, this.r, this.g, this.b);
+    }
+
+    checkIfVisible() {
+        this.isVisible = false; // reset at start
+
+        for (let i = 0; i < p.raysCoordinates.length; i++) {
+            const rc = p.raysCoordinates[i];
+            const intersectionP = findIntersection(rc.x1, rc.y1, rc.x2, rc.y2, this.x1, this.y1, this.x2, this.y2);
+
+            if (intersectionP) {
+                this.isVisible = true;
+                break;
+            }
+        }
     }
 }
 
@@ -305,9 +292,6 @@ class Sector {
         this.ch = ch;
         this.walls = walls;
         this.neighbors = neighbors;
-
-        this.fTexture = FLOOR_TEX;
-        this.cTexture = CEIL_TEX;
     }
 
     assignSectorToWalls() {
@@ -321,7 +305,7 @@ class Sector {
 const scale = 8;
 const p = new Player(10, 10);
 const sector1 = new Sector(0, 130, []); // Normal room
-const sector2 = new Sector(20, 100, []); // Raised platform
+const sector2 = new Sector(-10, 100, []); // Raised platform
 
 const l1 = new Line(20, 15, 30, 5);
 const l2 = new Line(30, 5, 50, 5);
@@ -332,18 +316,18 @@ const l6 = new Line(30, 30, 20, 15);
 
 sector1.walls = [l1, l2, l3, l4, l5, l6];
 
-const l5b = new Line(30, 30, 55, 30, true, sector1);
 const l7 = new Line(55, 30, 65, 40);
 const l8 = new Line(65, 40, 60, 55);
 const l9 = new Line(60, 55, 30, 55);
 const l10 = new Line(30, 55, 20, 45);
-const l11 = new Line(20, 45, 30, 30); // Connects back to the start of l5b
+const l11 = new Line(20, 45, 30, 30);
+const l5b = new Line(30, 30, 55, 30, true, sector1); // backref to sector1
 
 sector2.walls = [l5b, l7, l8, l9, l10, l11];
 
 const map = [
     l1, l2, l3, l4, l5, l6,
-    l5b, l7, l8, l9, l10, l11 // Added l5b
+    l7, l8, l9, l10, l11
 ];
 
 let minX = Infinity;
@@ -362,20 +346,7 @@ map.forEach(line => {
 });
 const sectors = [sector1, sector2];
 
-sectors.forEach(sector => { sector.assignSectorToWalls(); });
-
-wallTexImg.onload = () => {
-    WALL_TEX = loadTexture(wallTexImg);
-    map.forEach((l) => l.texture = WALL_TEX);
-};
-floorTexImg.onload = () => {
-    FLOOR_TEX = loadTexture(floorTexImg);
-    sectors.forEach((s) => s.fTexture = FLOOR_TEX);
-}
-ceilTexImg.onload = () => {
-    CEIL_TEX = loadTexture(ceilTexImg);
-    sectors.forEach((s) => s.cTexture = CEIL_TEX);
-}
+sectors.forEach(sector => { sector.assignSectorToWalls(); })
 
 
 class Project3D {
@@ -386,72 +357,44 @@ class Project3D {
         this.NEAR = 10;
     }
 
-    drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
-        if (!texture) return;
+    drawVertex(x, y) {
+        putPixel(x, y, 255, 255, 255);
+    }
 
-        if (x2 < x1) {
-            [x1, x2] = [x2, x1];
-            [y1Top, y2Top] = [y2Top, y1Top];
-            [y1Bottom, y2Bottom] = [y2Bottom, y1Bottom];
-            [ry1, ry2] = [ry2, ry1];
-        }
 
-        const dx = x2 - x1;
-        if (dx <= 0) return;
-
-        const iz1 = 1 / ry1;
-        const iz2 = 1 / ry2;
-        const u1 = 0 * iz1;
-        const u2 = texture.width * iz2;
-
-        for (let x = x1; x <= x2; x++) {
-            const t = (x - x1) / dx;
-            const currentIZ = iz1 + (iz2 - iz1) * t;
-            const currentUZ = u1 + (u2 - u1) * t;
-            const texX = (currentUZ / currentIZ) | 0;
-            const wrappedTexX = Math.abs(texX % texture.width);
-
-            const top = y1Top + (y2Top - y1Top) * t;
-            const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
-            const depth = ry1 + t * (ry2 - ry1);
-
-            if (bottom <= top) continue;
-
-            // // Only skip for opaque walls
-            // if (!isPortal && depth >= zBuffer[x]) continue;
-            // if (!isPortal) zBuffer[x] = depth;
-            if (depth >= zBuffer[x]) continue;
-            zBuffer[x] = depth;
-
-            const colHeight = bottom - top;
-            const vStep = texture.height / colHeight;
-            let v = 0;
-
-            const ry = 1 / currentIZ;
-            const shade = R(255 - ry * 0.15, 40, 255);
-
-            for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
-                const texY = (v | 0) % texture.height;
-                const i = (texY * texture.width + wrappedTexX) * 4;
-
-                putPixelZ(
-                    x, y, depth,
-                    (texture.data[i] * shade) >> 8,
-                    (texture.data[i + 1] * shade) >> 8,
-                    (texture.data[i + 2] * shade) >> 8
-                );
-                v += vStep;
-            }
-        }
+    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, r, g, b) {
+        drawLine(x1, y1Top, x1, y1Bottom, r, g, b);
+        drawLine(x1, y1Bottom, x2, y2Bottom, r, g, b);
+        drawLine(x2, y2Bottom, x2, y2Top, r, g, b);
+        drawLine(x2, y2Top, x1, y1Top, r, g, b);
     }
 
     normalizeAngle(angle) {
-        return Math.atan2(Math.sin(angle), Math.cos(angle));
+        return Math.atan2(Math.sin(angle), Math.cos(angle)); // Keeps it between -π and π
     }
 
     getVisibleWalls() {
         const visibleWalls = map;
+
+        visibleWalls.sort((a, b) => {
+            const dzA = this.getWallDepth(a);
+            const dzB = this.getWallDepth(b);
+            return dzB - dzA;
+        });
+
         return visibleWalls.filter(l => (l.isVisible));
+    }
+
+    getWallDepth(wall) {
+        const mx = (wall.x1 + wall.x2) / 2 - p.x;
+        const my = (wall.y1 + wall.y2) / 2 - p.y;
+
+        const angleRad = p.angle * Math.PI / 180;
+        const sin = Math.sin(angleRad);
+        const cos = Math.cos(angleRad);
+
+        const ry = mx * sin - my * cos; // this is Z in camera space (forward direction)
+        return ry;
     }
 
     projectWall(l) {
@@ -490,6 +433,7 @@ class Project3D {
                 wx2 = cx; wy2 = cy;
             }
 
+            // recompute dx/dy AFTER clipping
             const ndx1 = wx1 - p.x;
             const ndy1 = wy1 - p.y;
             const ndx2 = wx2 - p.x;
@@ -518,7 +462,7 @@ class Project3D {
         let screenY1 = ((H / 2) + ((fh - eyeHeightInWorld) * this.fovFactor) / ry1);
         let screenY2 = ((H / 2) + ((fh - eyeHeightInWorld) * this.fovFactor) / ry2);
 
-        return ({
+        return({
             wall: l,
             screenX1, screenX2,
             sy1T, sy2T,
@@ -529,161 +473,28 @@ class Project3D {
         });
     }
 
-    fillPolygonTextured(vertices, texture) {
-        if (vertices.length < 3) return;
-
-        // triangulate as fan
-        const v0 = vertices[0];
-
-        for (let i = 1; i < vertices.length - 1; i++) {
-            this.drawTexturedTriangle(
-                v0,
-                vertices[i],
-                vertices[i + 1],
-                texture
-            );
-        }
-    }
-
-    drawTexturedTriangle(v0, v1, v2, texture) {
-        // bounding box
-        const minX = Math.max(0, Math.floor(Math.min(v0.x, v1.x, v2.x)));
-        const maxX = Math.min(W - 1, Math.ceil(Math.max(v0.x, v1.x, v2.x)));
-        const minY = Math.max(0, Math.floor(Math.min(v0.y, v1.y, v2.y)));
-        const maxY = Math.min(H - 1, Math.ceil(Math.max(v0.y, v1.y, v2.y)));
-
-        // precompute inverse depth
-        v0.invZ = 1 / v0.ry;
-        v1.invZ = 1 / v1.ry;
-        v2.invZ = 1 / v2.ry;
-
-        // world * invZ
-        v0.wxz = v0.wx * v0.invZ;
-        v0.wyz = v0.wy * v0.invZ;
-        v1.wxz = v1.wx * v1.invZ;
-        v1.wyz = v1.wy * v1.invZ;
-        v2.wxz = v2.wx * v2.invZ;
-        v2.wyz = v2.wy * v2.invZ;
-
-        const area =
-            (v1.x - v0.x) * (v2.y - v0.y) -
-            (v2.x - v0.x) * (v1.y - v0.y);
-
-        if (area === 0) return;
-
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-
-                const w0 =
-                    ((v1.x - x) * (v2.y - y) - (v2.x - x) * (v1.y - y)) / area;
-                const w1 =
-                    ((v2.x - x) * (v0.y - y) - (v0.x - x) * (v2.y - y)) / area;
-                const w2 = 1 - w0 - w1;
-
-                if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-
-                const invZ =
-                    w0 * v0.invZ +
-                    w1 * v1.invZ +
-                    w2 * v2.invZ;
-
-                const wx =
-                    (w0 * v0.wxz +
-                        w1 * v1.wxz +
-                        w2 * v2.wxz) / invZ;
-
-                const wy =
-                    (w0 * v0.wyz +
-                        w1 * v1.wyz +
-                        w2 * v2.wyz) / invZ;
-
-                const depth = Math.sqrt((wx - p.x) ** 2 + (wy - p.y) ** 2);
-
-                if (depth >= zBuffer[x]) continue;
-
-                const u = ((wx * texture.width * 0.02) | 0) % texture.width;
-                const v = ((wy * texture.height * 0.02) | 0) % texture.height;
-
-                const i = (v * texture.width + u) * 4;
-                putPixelZ(
-                    x, y, depth,
-                    texture.data[i],
-                    texture.data[i + 1],
-                    texture.data[i + 2]
-                );
-            }
-        }
-    }
-
     project() {
         if (!p.currentSector) return;
-
-        this.zBuffer = new Float32Array(W);
-        this.zBuffer.fill(Infinity);
-
         const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
 
         const visibleWalls = this.getVisibleWalls();
 
-        // const drawQueue = [];
-
         for (let s of sectors) {
             const projectedWalls = [];
-            const ceilingVert = [];
-            const floorVert = [];
 
             for (const l of s.walls) {
                 const w = this.projectWall(l);
-
                 if (w) projectedWalls.push(w);
             }
 
-
-            for (const w of projectedWalls) {
-                ceilingVert.push({
-                    x: w.screenX1,
-                    y: w.sy1T,
-                    wx: w.wx1,
-                    wy: w.wy1,
-                    ry: w.ry1
-                });
-
-                ceilingVert.push({
-                    x: w.screenX2,
-                    y: w.sy2T,
-                    wx: w.wx2,
-                    wy: w.wy2,
-                    ry: w.ry2
-                });
-
-
-                floorVert.push({
-                    x: w.screenX1,
-                    y: w.screenY1,
-                    wx: w.wx1,
-                    wy: w.wy1,
-                    ry: w.ry1
-                });
-
-                floorVert.push({
-                    x: w.screenX2,
-                    y: w.screenY2,
-                    wx: w.wx2,
-                    wy: w.wy2,
-                    ry: w.ry2
-                });
-            }
-
-            this.fillPolygonTextured(ceilingVert, s.cTexture);
-            this.fillPolygonTextured(floorVert, s.fTexture);
 
             for (let w of projectedWalls) {
                 const l = w.wall;
 
                 if (!visibleWalls.includes(l)) continue;
 
-                const fh = l.sector.fh;
-                const ch = l.sector.ch;
+                const fh = l.sector.fh; const ch = l.sector.ch; const wh = ch - fh;
+
 
                 if (l.isPortal) {
                     const nSector = l.neighbor;
@@ -711,42 +522,33 @@ class Project3D {
                     let neighCeil2 = ((H / 2) - (nProjH2 / 2));
 
                     if (nFh < fh) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
+                        this.drawWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.r, l.g, l.b);
                     }
-                    if (nCh > ch) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
+                    if (nCh < ch) {
+                        this.drawWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.r, l.g, l.b);
+
                     }
+
                 } else {
-                    this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
+                    this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.r, l.g, l.b);
                 }
             }
         }
+
     }
 }
 
 
 const project3D = new Project3D();
 
-function markVisibleWalls(sector, fromPortal = null) {
-    if (!sector) return;
-    for (let wall of sector.walls) {
-        wall.isVisible = true;
-
-        if (wall.isPortal && wall.neighbor !== fromPortal) {
-            markVisibleWalls(wall.neighbor, sector);
-        }
-    }
-}
-
 
 const update = () => {
-    for (let i = 0; i < W * H; i++) zBuffer[i] = Infinity;
-
     p.movement();
     if (p.isMoving) {
-        map.forEach(l => l.isVisible = false); // reset
-        markVisibleWalls(p.currentSector);
+        map.forEach((l) => { l.checkIfVisible() });
     }
+    p.prepRayPoints();
+
     if (!is3D) {
         p.update();
         map.forEach((l) => { l.draw() });
@@ -756,7 +558,7 @@ const update = () => {
 
 }
 
-const render = (currentTime) => {
+const render = () => {
     pixels.fill(0);
 
     update();
@@ -765,29 +567,11 @@ const render = (currentTime) => {
 
     ctx.clearRect(0, 0, c.width, c.height);
     ctx.drawImage(buffer, 0, 0, W * SCALE, H * SCALE);
-
-
-    const deltaTime = currentTime - lastTime;
-    lastTime = currentTime;
-
-    if (deltaTime > 0) {
-        fps = R(1000 / deltaTime);
-
-        if (fps <= 30) {
-            p.speed = 5;
-            p.rotSpeed = 4;
-        } else {
-            p.speed = 2.5;
-            p.rotSpeed = 2;
-        }
-    }
-
-    writeUI();
 };
 
-function engine(currentTime) {
-    render(currentTime);
+function engine() {
+    render();
     requestAnimationFrame(engine);
 }
 
-requestAnimationFrame(engine);  
+requestAnimationFrame(engine);

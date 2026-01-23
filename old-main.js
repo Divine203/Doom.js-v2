@@ -19,8 +19,6 @@ const bctx = buffer.getContext('2d');
 const imageData = bctx.createImageData(W, H);
 const pixels = imageData.data;
 
-let zBuffer = new Float32Array(W * H);
-
 function writeUI() {
     ctx.fillStyle = 'white';
     ctx.font = `13px consolas`
@@ -30,19 +28,6 @@ function writeUI() {
 function putPixel(x, y, r, g, b) {
     if (x < 0 || x >= W || y < 0 || y >= H) return;
     const i = (y * W + x) * 4;
-    pixels[i] = r;
-    pixels[i + 1] = g;
-    pixels[i + 2] = b;
-    pixels[i + 3] = 255;
-}
-
-function putPixelZ(x, y, z, r, g, b) {
-    if (x < 0 || x >= W || y < 0 || y >= H) return;
-    const idx = y * W + x;
-    if (z >= project3D.zBuffer[idx]) return; // skip if farther
-    project3D.zBuffer[idx] = z;
-
-    const i = idx * 4;
     pixels[i] = r;
     pixels[i + 1] = g;
     pixels[i + 2] = b;
@@ -68,6 +53,25 @@ floorTexImg.src = './resource/floor2.jpg';
 let WALL_TEX;
 let FLOOR_TEX;
 let CEIL_TEX;
+
+const findIntersection = (x1, y1, x2, y2, x3, y3, x4, y4) => {
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if (denom === 0) {
+        return null; // lines are parallel or coincident
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+        const intersectionX = x1 + t * (x2 - x1);
+        const intersectionY = y1 + t * (y2 - y1);
+
+        return { x: intersectionX, y: intersectionY };
+    }
+
+    return null; // No intersection
+}
 
 const calcEndPoint = (x1, y1, d, angleInRadians) => {
     let x2 = (x1 + d * Math.cos(angleInRadians));
@@ -296,6 +300,20 @@ class Line {
     draw() {
         drawLine(this.x1, this.y1, this.x2, this.y2, this.r, this.g, this.b);
     }
+
+    checkIfVisible() {
+        this.isVisible = false; // reset at start
+
+        for (let i = 0; i < p.raysCoordinates.length; i++) {
+            const rc = p.raysCoordinates[i];
+            const intersectionP = findIntersection(rc.x1, rc.y1, rc.x2, rc.y2, this.x1, this.y1, this.x2, this.y2);
+
+            if (intersectionP) {
+                this.isVisible = true;
+                break;
+            }
+        }
+    }
 }
 
 
@@ -321,7 +339,7 @@ class Sector {
 const scale = 8;
 const p = new Player(10, 10);
 const sector1 = new Sector(0, 130, []); // Normal room
-const sector2 = new Sector(20, 100, []); // Raised platform
+const sector2 = new Sector(-10, 100, []); // Raised platform
 
 const l1 = new Line(20, 15, 30, 5);
 const l2 = new Line(30, 5, 50, 5);
@@ -386,7 +404,43 @@ class Project3D {
         this.NEAR = 10;
     }
 
-    drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
+    drawVertex(x, y) {
+        putPixel(x, y, 255, 255, 255);
+    }
+
+    fillPolygonVertical(points, r, g, b) {
+        // points = [{x, y}, ...] in SCREEN SPACE
+        const minX = Math.max(0, Math.floor(Math.min(...points.map(p => p.x))));
+        const maxX = Math.min(W - 1, Math.ceil(Math.max(...points.map(p => p.x))));
+
+        for (let x = minX; x <= maxX; x++) {
+            const intersections = [];
+
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+
+                if ((p1.x <= x && p2.x > x) || (p2.x <= x && p1.x > x)) {
+                    const t = (x - p1.x) / (p2.x - p1.x);
+                    const y = p1.y + t * (p2.y - p1.y);
+                    intersections.push(y);
+                }
+            }
+
+            intersections.sort((a, b) => a - b);
+
+            for (let i = 0; i < intersections.length; i += 2) {
+                const y1 = Math.max(0, Math.floor(intersections[i]));
+                const y2 = Math.min(H - 1, Math.ceil(intersections[i + 1]));
+
+                for (let y = y1; y <= y2; y++) {
+                    putPixel(x, y, r, g, b);
+                }
+            }
+        }
+    }
+
+    drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2) {
         if (!texture) return;
 
         if (x2 < x1) {
@@ -413,15 +467,8 @@ class Project3D {
 
             const top = y1Top + (y2Top - y1Top) * t;
             const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
-            const depth = ry1 + t * (ry2 - ry1);
 
             if (bottom <= top) continue;
-
-            // // Only skip for opaque walls
-            // if (!isPortal && depth >= zBuffer[x]) continue;
-            // if (!isPortal) zBuffer[x] = depth;
-            if (depth >= zBuffer[x]) continue;
-            zBuffer[x] = depth;
 
             const colHeight = bottom - top;
             const vStep = texture.height / colHeight;
@@ -434,8 +481,8 @@ class Project3D {
                 const texY = (v | 0) % texture.height;
                 const i = (texY * texture.width + wrappedTexX) * 4;
 
-                putPixelZ(
-                    x, y, depth,
+                putPixel(
+                    x, y,
                     (texture.data[i] * shade) >> 8,
                     (texture.data[i + 1] * shade) >> 8,
                     (texture.data[i + 2] * shade) >> 8
@@ -445,13 +492,122 @@ class Project3D {
         }
     }
 
+    drawTexturedCeiling(projectedWalls, texture, dir, plane) {
+        if (!texture || !p.currentSector) return;
+
+        const horizon = H >> 1;
+        const texW = texture.width;
+        const texH = texture.height;
+
+        // 1. PINPOINT THE BOUNDARY
+        // We create a mask that defines the BOTTOM edge of the ceiling for every X column.
+        const yMask = new Int16Array(W).fill(0);
+
+        for (const w of projectedWalls) {
+            const xStart = Math.max(0, Math.floor(w.screenX1));
+            const xEnd = Math.min(W - 1, Math.floor(w.screenX2));
+            const dx = w.screenX2 - w.screenX1 || 1e-6;
+
+            for (let x = xStart; x <= xEnd; x++) {
+                const t = (x - w.screenX1) / dx;
+                // Linear interpolation of the ceiling-wall intersection
+                const yCeilEdge = w.sy1T + t * (w.sy2T - w.sy1T);
+
+                // The ceiling exists from y=0 down to this edge.
+                // We store the highest wall-top found for this column.
+                if (yCeilEdge > yMask[x]) yMask[x] = yCeilEdge | 0;
+            }
+        }
+
+        // 2. CEILING MATH
+        const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
+        const h = p.currentSector.ch - eyeHeightInWorld;
+
+        // Scale: 1 world unit = how many texture pixels? 
+        // If it's "scattered", this number is likely too high or low.
+        const tileScale = 0.02;
+
+        for (let y = 0; y < horizon; y++) {
+            const pY = horizon - y; // Distance in pixels from the horizon
+            if (pY <= 0) continue;
+
+            // DISTANCE CALCULATION
+            // This must match your projectWall logic: (Height * fov) / ScreenYOffset
+            const dist = (h * this.fovFactor) / pY;
+
+            // If distance is too high, the texture samples become "scattered" (aliasing)
+            if (dist > 1000) continue;
+
+            // Calculate world coordinates for the span edges
+            const rayDirX0 = dir.x - plane.x;
+            const rayDirY0 = dir.y - plane.y;
+            const rayDirX1 = dir.x + plane.x;
+            const rayDirY1 = dir.y + plane.y;
+
+            // How much world-coordinate changes per pixel
+            const stepX = (dist * (rayDirX1 - rayDirX0)) / W;
+            const stepY = (dist * (rayDirY1 - rayDirY0)) / W;
+
+            // Starting world-position at x = 0
+            let worldX = p.x + dist * rayDirX0;
+            let worldY = p.y + dist * rayDirY0;
+
+            const shade = Math.max(0.1, 1 - dist / 800);
+
+            for (let x = 0; x < W; x++) {
+                // BOUNDARY CHECK
+                // We only draw if the current 'y' is above the wall-top 'yMask' for this column.
+                if (y < yMask[x]) {
+                    // Using Math.abs and Modulo to keep coords within texture bounds [0, width]
+                    const u = Math.floor(Math.abs(worldX * texW * tileScale)) % texW;
+                    const v = Math.floor(Math.abs(worldY * texH * tileScale)) % texH;
+
+                    const i = (v * texW + u) * 4;
+                    putPixel(x, y,
+                        texture.data[i] * shade,
+                        texture.data[i + 1] * shade,
+                        texture.data[i + 2] * shade
+                    );
+                }
+                worldX += stepX;
+                worldY += stepY;
+            }
+        }
+    }
+
+    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, r, g, b) {
+        drawLine(x1, y1Top, x1, y1Bottom, r, g, b);
+        drawLine(x1, y1Bottom, x2, y2Bottom, r, g, b);
+        drawLine(x2, y2Bottom, x2, y2Top, r, g, b);
+        drawLine(x2, y2Top, x1, y1Top, r, g, b);
+    }
+
     normalizeAngle(angle) {
-        return Math.atan2(Math.sin(angle), Math.cos(angle));
+        return Math.atan2(Math.sin(angle), Math.cos(angle)); // Keeps it between -π and π
     }
 
     getVisibleWalls() {
         const visibleWalls = map;
+
+        visibleWalls.sort((a, b) => {
+            const dzA = this.getWallDepth(a);
+            const dzB = this.getWallDepth(b);
+            return dzB - dzA;
+        });
+
         return visibleWalls.filter(l => (l.isVisible));
+    }
+
+    getWallDepth(wall) {
+        const mx = (wall.x1 + wall.x2) / 2 - p.x;
+        const my = (wall.y1 + wall.y2) / 2 - p.y;
+
+        const angleRad = p.angle * Math.PI / 180;
+        const sin = Math.sin(angleRad);
+        const cos = Math.cos(angleRad);
+
+        const ry = mx * sin - my * cos; // this is Z in camera space (forward direction)
+        return ry;
     }
 
     projectWall(l) {
@@ -490,6 +646,7 @@ class Project3D {
                 wx2 = cx; wy2 = cy;
             }
 
+            // recompute dx/dy AFTER clipping
             const ndx1 = wx1 - p.x;
             const ndy1 = wy1 - p.y;
             const ndx2 = wx2 - p.x;
@@ -529,153 +686,135 @@ class Project3D {
         });
     }
 
-    fillPolygonTextured(vertices, texture) {
-        if (vertices.length < 3) return;
+    fillPolygonVertical(points, r, g, b) {
+        // points = [{x, y}, ...] in SCREEN SPACE
+        const minX = Math.max(0, Math.floor(Math.min(...points.map(p => p.x))));
+        const maxX = Math.min(W - 1, Math.ceil(Math.max(...points.map(p => p.x))));
 
-        // triangulate as fan
-        const v0 = vertices[0];
+        for (let x = minX; x <= maxX; x++) {
+            const intersections = [];
 
-        for (let i = 1; i < vertices.length - 1; i++) {
-            this.drawTexturedTriangle(
-                v0,
-                vertices[i],
-                vertices[i + 1],
-                texture
+            for (let i = 0; i < points.length; i++) {
+                const p1 = points[i];
+                const p2 = points[(i + 1) % points.length];
+
+                if ((p1.x <= x && p2.x > x) || (p2.x <= x && p1.x > x)) {
+                    const t = (x - p1.x) / (p2.x - p1.x);
+                    const y = p1.y + t * (p2.y - p1.y);
+                    intersections.push(y);
+                }
+            }
+
+            intersections.sort((a, b) => a - b);
+
+            for (let i = 0; i < intersections.length; i += 2) {
+                const y1 = Math.max(0, Math.floor(intersections[i]));
+                const y2 = Math.min(H - 1, Math.ceil(intersections[i + 1]));
+
+                for (let y = y1; y <= y2; y++) {
+                    putPixel(x, y, r, g, b);
+                }
+            }
+        }
+    }
+
+    drawCeilingWireframe(projectedWalls, r, g, b) {
+        for (const w of projectedWalls) {
+            // Draw the line representing the top edge of this specific wall
+            drawLine(
+                R(w.screenX1), R(w.sy1T),
+                R(w.screenX2), R(w.sy2T),
+                r, g, b
             );
         }
     }
 
-    drawTexturedTriangle(v0, v1, v2, texture) {
-        // bounding box
-        const minX = Math.max(0, Math.floor(Math.min(v0.x, v1.x, v2.x)));
-        const maxX = Math.min(W - 1, Math.ceil(Math.max(v0.x, v1.x, v2.x)));
-        const minY = Math.max(0, Math.floor(Math.min(v0.y, v1.y, v2.y)));
-        const maxY = Math.min(H - 1, Math.ceil(Math.max(v0.y, v1.y, v2.y)));
+    drawSolidCeiling(projectedWalls, r, g, b) {
+        for (const w of projectedWalls) {
+            // 1. Determine the horizontal screen range for this wall segment
+            let x1 = Math.floor(w.screenX1);
+            let x2 = Math.ceil(w.screenX2);
 
-        // precompute inverse depth
-        v0.invZ = 1 / v0.ry;
-        v1.invZ = 1 / v1.ry;
-        v2.invZ = 1 / v2.ry;
+            // Ensure we stay within canvas bounds
+            const startX = Math.max(0, Math.min(x1, x2));
+            const endX = Math.min(W - 1, Math.max(x1, x2));
 
-        // world * invZ
-        v0.wxz = v0.wx * v0.invZ;
-        v0.wyz = v0.wy * v0.invZ;
-        v1.wxz = v1.wx * v1.invZ;
-        v1.wyz = v1.wy * v1.invZ;
-        v2.wxz = v2.wx * v2.invZ;
-        v2.wyz = v2.wy * v2.invZ;
+            for (let x = startX; x <= endX; x++) {
+                // 2. Calculate the "t" progress across this specific wall
+                const dx = w.screenX2 - w.screenX1;
+                if (Math.abs(dx) < 0.1) continue; // Avoid division by zero
 
-        const area =
-            (v1.x - v0.x) * (v2.y - v0.y) -
-            (v2.x - v0.x) * (v1.y - v0.y);
+                const t = (x - w.screenX1) / dx;
 
-        if (area === 0) return;
+                // 3. Interpolate the Y position of the ceiling for this specific X
+                const ceilingY = w.sy1T + (w.sy2T - w.sy1T) * t;
 
-        for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
-
-                const w0 =
-                    ((v1.x - x) * (v2.y - y) - (v2.x - x) * (v1.y - y)) / area;
-                const w1 =
-                    ((v2.x - x) * (v0.y - y) - (v0.x - x) * (v2.y - y)) / area;
-                const w2 = 1 - w0 - w1;
-
-                if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-
-                const invZ =
-                    w0 * v0.invZ +
-                    w1 * v1.invZ +
-                    w2 * v2.invZ;
-
-                const wx =
-                    (w0 * v0.wxz +
-                        w1 * v1.wxz +
-                        w2 * v2.wxz) / invZ;
-
-                const wy =
-                    (w0 * v0.wyz +
-                        w1 * v1.wyz +
-                        w2 * v2.wyz) / invZ;
-
-                const depth = Math.sqrt((wx - p.x) ** 2 + (wy - p.y) ** 2);
-
-                if (depth >= zBuffer[x]) continue;
-
-                const u = ((wx * texture.width * 0.02) | 0) % texture.width;
-                const v = ((wy * texture.height * 0.02) | 0) % texture.height;
-
-                const i = (v * texture.width + u) * 4;
-                putPixelZ(
-                    x, y, depth,
-                    texture.data[i],
-                    texture.data[i + 1],
-                    texture.data[i + 2]
-                );
+                // 4. Fill from the top of the screen (0) to the ceilingY
+                for (let y = 0; y < ceilingY; y++) {
+                    putPixel(x, y, r, g, b);
+                }
             }
         }
     }
 
     project() {
         if (!p.currentSector) return;
-
-        this.zBuffer = new Float32Array(W);
-        this.zBuffer.fill(Infinity);
-
         const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
 
         const visibleWalls = this.getVisibleWalls();
 
-        // const drawQueue = [];
-
         for (let s of sectors) {
             const projectedWalls = [];
-            const ceilingVert = [];
-            const floorVert = [];
 
             for (const l of s.walls) {
                 const w = this.projectWall(l);
-
                 if (w) projectedWalls.push(w);
             }
 
+            // Inside project(), before calling fillPolygon
+            const ceilPoints = [];
+
 
             for (const w of projectedWalls) {
-                ceilingVert.push({
-                    x: w.screenX1,
-                    y: w.sy1T,
-                    wx: w.wx1,
-                    wy: w.wy1,
-                    ry: w.ry1
-                });
-
-                ceilingVert.push({
-                    x: w.screenX2,
-                    y: w.sy2T,
-                    wx: w.wx2,
-                    wy: w.wy2,
-                    ry: w.ry2
-                });
-
-
-                floorVert.push({
-                    x: w.screenX1,
-                    y: w.screenY1,
-                    wx: w.wx1,
-                    wy: w.wy1,
-                    ry: w.ry1
-                });
-
-                floorVert.push({
-                    x: w.screenX2,
-                    y: w.screenY2,
-                    wx: w.wx2,
-                    wy: w.wy2,
-                    ry: w.ry2
-                });
+                putPixel(R(w.screenX1), R(w.sy1T), 255, 0, 0);
+                putPixel(R(w.screenX2), R(w.sy2T), 255, 0, 0);
             }
 
-            this.fillPolygonTextured(ceilingVert, s.cTexture);
-            this.fillPolygonTextured(floorVert, s.fTexture);
+            const angleRad = p.angle * (Math.PI / 180);
+
+            // 2. The "Forward" Vector (dir)
+            // This matches your 'ry' math: ry = dx * sin(A) - dy * cos(A)
+            const dir = {
+                x: Math.sin(angleRad),
+                y: -Math.cos(angleRad)
+            };
+
+            // 3. The "Camera Plane" Vector (plane)
+            // This matches your 'rx' math: rx = dx * cos(A) + dy * sin(A)
+            // We multiply by 0.66 to set a standard 90-degree FOV.
+            const plane = {
+                x: Math.cos(angleRad) * 0.66,
+                y: Math.sin(angleRad) * 0.66
+            };
+
+            this.drawTexturedCeiling(projectedWalls, s.cTexture, dir, plane);
+            // // 2. Remove duplicates (since walls share vertices)
+            // const uniquePoints = ceilPoints.filter((v, i, a) =>
+            //     a.findIndex(t => Math.abs(t.x - v.x) < 0.1 && Math.abs(t.y - v.y) < 0.1) === i
+            // );
+
+            // // 3. Simple Centroid Sort (Only works for convex sectors!)
+            // const cx = uniquePoints.reduce((a, b) => a + b.x, 0) / uniquePoints.length;
+            // const cy = uniquePoints.reduce((a, b) => a + b.y, 0) / uniquePoints.length;
+            // uniquePoints.sort((a, b) => Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+
+            // if (uniquePoints.length >= 3) {
+            //     // this.fillPolygonVertical(uniquePoints, 255, 0, 0);
+            //     for(let u of uniquePoints) {
+            //         putPixel(u.x, u.y);
+            //         putPixel(x, u.y);
+            //     }  
+            // }
 
             for (let w of projectedWalls) {
                 const l = w.wall;
@@ -711,42 +850,33 @@ class Project3D {
                     let neighCeil2 = ((H / 2) - (nProjH2 / 2));
 
                     if (nFh < fh) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
+                        this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2);
                     }
-                    if (nCh > ch) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
+                    if (nCh < ch) {
+                        this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2);
+
                     }
+
                 } else {
                     this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
                 }
             }
         }
+
     }
 }
 
 
 const project3D = new Project3D();
 
-function markVisibleWalls(sector, fromPortal = null) {
-    if (!sector) return;
-    for (let wall of sector.walls) {
-        wall.isVisible = true;
-
-        if (wall.isPortal && wall.neighbor !== fromPortal) {
-            markVisibleWalls(wall.neighbor, sector);
-        }
-    }
-}
-
 
 const update = () => {
-    for (let i = 0; i < W * H; i++) zBuffer[i] = Infinity;
-
     p.movement();
     if (p.isMoving) {
-        map.forEach(l => l.isVisible = false); // reset
-        markVisibleWalls(p.currentSector);
+        map.forEach((l) => { l.checkIfVisible() });
     }
+    p.prepRayPoints();
+
     if (!is3D) {
         p.update();
         map.forEach((l) => { l.draw() });
@@ -772,14 +902,6 @@ const render = (currentTime) => {
 
     if (deltaTime > 0) {
         fps = R(1000 / deltaTime);
-
-        if (fps <= 30) {
-            p.speed = 5;
-            p.rotSpeed = 4;
-        } else {
-            p.speed = 2.5;
-            p.rotSpeed = 2;
-        }
     }
 
     writeUI();
@@ -790,4 +912,4 @@ function engine(currentTime) {
     requestAnimationFrame(engine);
 }
 
-requestAnimationFrame(engine);  
+requestAnimationFrame(engine);
