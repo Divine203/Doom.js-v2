@@ -1,13 +1,4 @@
-const K = {
-    r: false, l: false,
-    u: false, d: false,
 
-    W: false, A: false,
-    S: false, D: false,
-    Q: false, E: false,
-};
-
-let is3D = false;
 
 
 const controls = () => {
@@ -44,6 +35,21 @@ const controls = () => {
             case 'e':
                 if (!K.Q) K.E = true;
                 is3D = !is3D;
+
+                SCALE = is3D ? 4 : 1;
+                W = c.width / SCALE;
+                H = c.height / SCALE;
+                buffer.width = W;
+                buffer.height = H;
+
+                bctx = buffer.getContext('2d');
+
+                imageData = bctx.createImageData(W, H);
+                pixels = imageData.data;
+
+                zBuffer = new Float32Array(W * H);
+                
+                project3D = new Project3D();
                 break;
         }
     });
