@@ -498,7 +498,7 @@ class Project3D {
             const texX = (currentUZ / currentIZ) | 0;
             // const wrappedTexX = Math.abs(texX % texture.width);
             let wrappedTexX = texX;
-            if(wrappedTexX >= texture.width) wrappedTexX -= texture.width;
+            if (wrappedTexX >= texture.width) wrappedTexX -= texture.width;
 
             const top = y1Top + (y2Top - y1Top) * t;
             const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
@@ -515,7 +515,7 @@ class Project3D {
             let v = 0;
 
             const ry = 1 / currentIZ;
-            const shade = R(255 - ry * 0.15, 40, 255);
+            const shade = 255 - ry * 0.15;
 
             for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
                 // const texY = (v | 0) % texture.height;
@@ -524,12 +524,14 @@ class Project3D {
 
                 const i = (texY * texture.width + wrappedTexX) * 4;
 
-                putPixelZ(
-                    x, y, depth,
-                    (texture.data[i] * shade) >> 8,
-                    (texture.data[i + 1] * shade) >> 8,
-                    (texture.data[i + 2] * shade) >> 8
-                );
+                if (!(isPortal && depth >= zBuffer[x])) {
+                    putPixelZ(
+                        x, y, depth,
+                        (texture.data[i] * shade) >> 8,
+                        (texture.data[i + 1] * shade) >> 8,
+                        (texture.data[i + 2] * shade) >> 8
+                    );
+                }
                 v += vStep;
             }
         }
@@ -775,10 +777,6 @@ class Project3D {
                 floorVert.push({ x: c.screenX2, y: c.screenY2, wx: c.wx2, wy: c.wy2, ry: c.ry2 });
             }
 
-            this.fillPolygonTextured(ceilingVert, s.cTexture);
-            this.fillPolygonTextured(floorVert, s.fTexture);
-
-
             for (let w of projectedWalls) {
                 const l = w.wall;
 
@@ -823,6 +821,10 @@ class Project3D {
                     this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
                 }
             }
+            
+            this.fillPolygonTextured(ceilingVert, s.cTexture);
+            this.fillPolygonTextured(floorVert, s.fTexture);
+
         }
     }
 }
