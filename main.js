@@ -12,7 +12,7 @@ const K = {
 
 let is3D = false;
 
-SCALE = 1;
+let SCALE = 1;
 
 ctx.imageSmoothingEnabled = false;
 
@@ -184,7 +184,7 @@ class Player {
         this.numRays = 2;
         this.currentSector;
         this.lastSector;
-        this.offsetAngles = Array.from({ length: this.numRays }, (v, k) => (k * ((this.FOV + 90) / this.numRays) - (this.FOV / 2))); // [1, 90] (+90 cause 180deg is what the player actually sees)
+        this.offsetAngles = Array.from({ length: this.numRays }, (v, k) => (k * ((this.FOV + 120) / this.numRays) - (this.FOV / 2))); // [1, 90] (+ 120 cause it is what the player actually sees)
         this.raysCoordinates = []; //{x1, y1, x2, y2}
     }
 
@@ -284,7 +284,7 @@ class Player {
         this.draw();
         this.drawFov();
     }
-}   
+}
 
 const findIntersection = (x1, y1, x2, y2, x3, y3, x4, y4) => {
     const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
@@ -394,7 +394,7 @@ const scale = 8;
 const p = new Player(10, 10);
 const sector1 = new Sector(0, 130, []); // Normal room
 const sector2 = new Sector(-10, 100, []); // Raised platform
-const sector3 = new Sector(-20, 70, []); // Raised platform
+const sector3 = new Sector(-20, 200, []); // Raised platform
 
 const l1 = new Line(20, 15, 30, 5);
 const l2 = new Line(30, 5, 50, 5);
@@ -415,11 +415,11 @@ const l11 = new Line(20, 45, 30, 30); // Connects back to the start of l5b
 sector2.walls = [l5b, l7, l8, l9, l10, l11];
 
 const l9b = new Line(60, 55, 30, 55, true, sector2); // top line
-const l12 = new Line(60, 55, 70, 85); // right line
-const l13 = new Line(70, 85, 60, 105); // right line
-const l14 = new Line(60, 105, 30, 105); // bottom line
-const l15 = new Line(30, 105, 20, 85); // left line
-const l16 = new Line(20, 85, 30, 55); // left line
+const l12 = new Line(60, 55, 70, 75); // right line
+const l13 = new Line(70, 75, 60, 85); // right line
+const l14 = new Line(60, 85, 30, 85); // bottom line
+const l15 = new Line(30, 85, 20, 75); // left line
+const l16 = new Line(20, 75, 30, 55); // left line
 
 sector3.walls = [l9b, l12, l13, l14, l15, l16];
 
@@ -496,7 +496,9 @@ class Project3D {
             const currentIZ = iz1 + (iz2 - iz1) * t;
             const currentUZ = u1 + (u2 - u1) * t;
             const texX = (currentUZ / currentIZ) | 0;
-            const wrappedTexX = Math.abs(texX % texture.width);
+            // const wrappedTexX = Math.abs(texX % texture.width);
+            let wrappedTexX = texX;
+            if(wrappedTexX >= texture.width) wrappedTexX -= texture.width;
 
             const top = y1Top + (y2Top - y1Top) * t;
             const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
@@ -516,7 +518,10 @@ class Project3D {
             const shade = R(255 - ry * 0.15, 40, 255);
 
             for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
-                const texY = (v | 0) % texture.height;
+                // const texY = (v | 0) % texture.height;
+                let texY = v | 0;
+                if (texY >= texture.height) texY -= texture.height;
+
                 const i = (texY * texture.width + wrappedTexX) * 4;
 
                 putPixelZ(
@@ -596,7 +601,7 @@ class Project3D {
                         w1 * v1.wyz +
                         w2 * v2.wyz) / invZ;
 
-                const depth = Math.sqrt((wx - p.x) ** 2 + (wy - p.y) ** 2);
+                const depth = 1 / invZ;
 
                 if (depth >= zBuffer[x]) continue;
 
