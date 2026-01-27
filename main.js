@@ -418,63 +418,161 @@ const sector7 = new Sector(-20, 100, []); //bottom right
 
 const sector8 = new Sector(-20, 100, []); //right
 
-const l1 = new Line(118, 90, 200, 90);
-const l2 = new Line(200, 90, 200, 160, true, sector2);
-const l3 = new Line(200, 160, 118, 160, true, sector4);
+
+
+//center stage
+const sector9 = new Sector(-10, 150, []); //pillar1 -- top left
+const sector10 = new Sector(-10, 150, []); //step down -- top
+
+const sector11 = new Sector(-10, 150, []); //pillar2 -- top right
+const sector12 = new Sector(-10, 150, []); //step down -- right
+
+const sector13 = new Sector(-10, 150, []); //pillar -- bottom right
+const sector14 = new Sector(-10, 150, []); //step down -- bottom
+const sector15 = new Sector(-10, 150, []); //pillar -- bottom left
+
+const sector16 = new Sector(-10, 150, []); //step down -- left
+
+const sector17 = new Sector(0, 200, []); //blue center
+//
+
+
+
+
+const l1 = new Line(118, 90, 250, 90);
+const l2 = new Line(250, 90, 250, 160, true, sector2);
+const l3 = new Line(250, 160, 118, 160, true, sector4);
 const l4 = new Line(118, 160, 118, 90);
 
 sector1.walls = [l1, l2, l3, l4];
 
-const l5 = new Line(200, 160, 200, 90, true, sector1); //l2
-const l6 = new Line(200, 90, 278, 90);
-const l7 = new Line(278, 90, 278, 160, true, sector3);
-const l8 = new Line(278, 160, 200, 160); // sector soon.
+const l5 = new Line(250, 160, 250, 90, true, sector1); //l2
+const l6 = new Line(250, 90, 328, 90);
+const l7 = new Line(328, 90, 328, 160, true, sector3);
+const l8 = new Line(328, 160, 250, 160, true, sector10); // l37
 
 sector2.walls = [l5, l6, l7, l8];
 
-const l9 = new Line(278, 160, 278, 90, true, sector2); // l7
-const l10 = new Line(278, 90, 360, 90);
-const l11 = new Line(360, 90, 360, 160);
-const l12 = new Line(360, 160, 278, 160, true, sector8);
+const l9 = new Line(328, 160, 328, 90, true, sector2); // l7
+const l10 = new Line(328, 90, 400, 90);
+const l11 = new Line(400, 90, 400, 160);
+const l12 = new Line(400, 160, 328, 160, true, sector8);
 
 sector3.walls = [l9, l10, l11, l12];
 
-const l13 = new Line(118, 160, 200, 160, true, sector1); //l3
-const l14 = new Line(200, 160, 200, 280); // sector soon.
-const l15 = new Line(200, 280, 118, 280, true, sector5);
+const l13 = new Line(118, 160, 250, 160, true, sector1); //l3
+const l14 = new Line(250, 160, 250, 280, true, sector16); // l64.
+const l15 = new Line(250, 280, 118, 280, true, sector5);
 const l16 = new Line(118, 280, 118, 160);
 
 sector4.walls = [l13, l14, l15, l16];
 
-const l17 = new Line(118, 280, 200, 280, true, sector4); // l15
-const l18 = new Line(200, 280, 200, 350, true, sector6);
-const l19 = new Line(200, 350, 118, 350);
+const l17 = new Line(118, 280, 250, 280, true, sector4); // l15
+const l18 = new Line(250, 280, 250, 350, true, sector6);
+const l19 = new Line(250, 350, 118, 350);
 const l20 = new Line(118, 350, 118, 280);
 
 sector5.walls = [l17, l18, l19, l20];
 
-const l21 = new Line(200, 350, 200, 280, true, sector5); //l18
-const l22 = new Line(200, 280, 278, 280) //sector soon
-const l23 = new Line(278, 280, 278, 350, true, sector7);
-const l24 = new Line(278, 350, 200, 350);
+const l21 = new Line(250, 350, 250, 280, true, sector5); //l18
+const l22 = new Line(250, 280, 328, 280, true, sector14) //l55
+const l23 = new Line(328, 280, 328, 350, true, sector7);
+const l24 = new Line(328, 350, 250, 350);
 
 sector6.walls = [l21, l22, l23, l24];
 
-const l25 = new Line(278, 350, 278, 280, true, sector6); // l23
-const l26 = new Line(278, 280, 360, 280, true, sector8);
-const l27 = new Line(360, 280, 360, 350);
-const l28 = new Line(360, 350, 278, 350);
+const l25 = new Line(328, 350, 328, 280, true, sector6); // l23
+const l26 = new Line(328, 280, 400, 280, true, sector8);
+const l27 = new Line(400, 280, 400, 350);
+const l28 = new Line(400, 350, 328, 350);
 
 sector7.walls = [l25, l26, l27, l28];
 
-const l29 = new Line(360, 280, 278, 280, true, sector7);
-const l30 = new Line(278, 280, 278, 160); // sector soon
-const l31 = new Line(278, 160, 360, 160, true, sector3); // l12
-const l32 = new Line(360, 160, 360, 280) //sector soon
+const l29 = new Line(400, 280, 328, 280, true, sector7);
+const l30 = new Line(328, 280, 328, 160, true, sector12); // l46
+const l31 = new Line(328, 160, 400, 160, true, sector3); // l12
+const l32 = new Line(400, 160, 400, 280) //sector soon
 
 sector8.walls = [l29, l30, l31, l32];
 
-const sectors = [sector1, sector2, sector3, sector4, sector5, sector6, sector7, sector8];
+
+//center stage lines
+const l33 = new Line(250, 160, 260, 160);
+const l34 = new Line(260, 160, 260, 170);
+const l35 = new Line(260, 170, 250, 170);
+const l36 = new Line(250, 170, 250, 160);
+
+sector9.walls = [l33, l34, l35, l36]; // pillar1
+
+const l37 = new Line(260, 160, 318, 160, true, sector2);
+const l38 = new Line(318, 160, 318, 170);
+const l39 = new Line(318, 170, 260, 170, true, sector17); //sector soon
+const l40 = new Line(260, 170, 260, 160);
+
+sector10.walls = [l37, l38, l39, l40];
+
+const l41 = new Line(318, 160, 328, 160);
+const l42 = new Line(328, 160, 328, 170);
+const l43 = new Line(328, 170, 318, 170);
+const l44 = new Line(318, 170, 318, 160);
+
+sector11.walls = [l41, l42, l43, l44]; //pillar2
+
+const l45 = new Line(318, 170, 328, 170);
+const l46 = new Line(328, 170, 328, 270, true, sector8);
+const l47 = new Line(328, 270, 318, 270);
+const l48 = new Line(318, 270, 318, 170, true, sector17); // sector soon
+
+sector12.walls = [l45, l46, l47, l48];
+
+const l49 = new Line(318, 270, 328, 270);
+const l50 = new Line(328, 270, 328, 280);
+const l51 = new Line(328, 280, 318, 280);
+const l52 = new Line(318, 280, 318, 270);
+
+sector13.walls = [l49, l50, l51, l52]; // pillar3
+
+const l53 = new Line(260, 270, 318, 270, true, sector17); //sector soon
+const l54 = new Line(318, 270, 318, 280);
+const l55 = new Line(318, 280, 260, 280, true, sector6);
+const l56 = new Line(260, 280, 260, 270);
+
+sector14.walls = [l53, l54, l55, l56];
+
+const l57 = new Line(250, 270, 260, 270);
+const l58 = new Line(260, 270, 260, 280);
+const l59 = new Line(260, 280, 250, 280);
+const l60 = new Line(250, 280, 250, 270);
+
+sector15.walls = [l57, l58, l59, l60]; // pillar4
+
+const l61 = new Line(250, 170, 260, 170);
+const l62 = new Line(260, 170, 260, 270, true, sector17); //sector soon
+const l63 = new Line(260, 270, 250, 270);
+const l64 = new Line(250, 270, 250, 170, true, sector4);
+
+sector16.walls = [l61, l62, l63, l64];
+
+const l65 = new Line(260, 170, 318, 170, true, sector10);
+const l66 = new Line(318, 170, 318, 270, true, sector12);
+const l67 = new Line(318, 270, 260, 270, true, sector14);
+const l68 = new Line(260, 270, 260, 170, true, sector16);
+
+sector17.walls = [l65, l66, l67, l68];
+//
+
+
+
+
+const sectors = [
+    sector1, sector2, sector3,
+    sector4, sector5, sector6, 
+    sector7, sector8,
+
+    sector9, sector10, sector11,
+    sector12, sector13, sector14,
+    sector15, sector16, sector17
+];
 
 const map = [];
 
@@ -484,7 +582,7 @@ for(let s of sectors) {
     }
 }
 
-const scale = 1.5;
+const scale = 2;
 // const sector1 = new Sector(0, 130, []); // Normal room
 // const sector2 = new Sector(-10, 100, []); // Raised platform
 // const sector3 = new Sector(-20, 200, []); // Raised platform
@@ -874,7 +972,7 @@ class Project3D {
                 floorVert.push({ x: c.screenX2, y: c.screenY2, wx: c.wx2, wy: c.wy2, ry: c.ry2 });
             }
 
-            this.fillPolygonTextured(floorVert, s.fTexture);
+            
 
             for (let w of projectedWalls) {
                 const l = w.wall;
@@ -922,6 +1020,7 @@ class Project3D {
             }
 
             this.fillPolygonTextured(ceilingVert, s.cTexture);
+            this.fillPolygonTextured(floorVert, s.fTexture);
 
 
         }
@@ -994,10 +1093,10 @@ const render = (currentTime) => {
     writeUI();
 
     if (!is3D) {
-        map.forEach((l) => {
-            writeCoord(l.ox1, l.oy1, l.x1, l.y1);
-            writeCoord(l.ox2, l.oy2, l.x2, l.y2);
-        });
+        // map.forEach((l) => {
+        //     writeCoord(l.ox1, l.oy1, l.x1, l.y1);
+        //     writeCoord(l.ox2, l.oy2, l.x2, l.y2);
+        // });
     }
 
     writeCoord(mcx, mcy, mcx, mcy); 
