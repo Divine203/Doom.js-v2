@@ -406,34 +406,34 @@ class Sector {
 const p = new Player(10, 10);
 
 
-const sector1 = new Sector(-20, 100, []); //top left
-const sector2 = new Sector(-20, 100, []); //top
-const sector3 = new Sector(-20, 100, []); //top right
+const sector1 = new Sector(-20, 200, []); //top left
+const sector2 = new Sector(-20, 200, []); //top
+const sector3 = new Sector(-20, 200, []); //top right
 
-const sector4 = new Sector(-20, 100, []); //left
-const sector5 = new Sector(-20, 100, []); //bottom left
+const sector4 = new Sector(-20, 200, []); //left
+const sector5 = new Sector(-20, 200, []); //bottom left
 
-const sector6 = new Sector(-20, 100, []); //bottom
-const sector7 = new Sector(-20, 100, []); //bottom right
+const sector6 = new Sector(-20, 200, []); //bottom
+const sector7 = new Sector(-20, 200, []); //bottom right
 
-const sector8 = new Sector(-20, 100, []); //right
+const sector8 = new Sector(-20, 200, []); //right
 
 
 
 //center stage
-const sector9 = new Sector(-10, 150, []); //pillar1 -- top left
-const sector10 = new Sector(-10, 150, []); //step down -- top
+const sector9 = new Sector(-10, 250, []); //pillar1 -- top left
+const sector10 = new Sector(-10, 250, []); //step down -- top
 
-const sector11 = new Sector(-10, 150, []); //pillar2 -- top right
-const sector12 = new Sector(-10, 150, []); //step down -- right
+const sector11 = new Sector(-10, 250, []); //pillar2 -- top right
+const sector12 = new Sector(-10, 250, []); //step down -- right
 
-const sector13 = new Sector(-10, 150, []); //pillar -- bottom right
-const sector14 = new Sector(-10, 150, []); //step down -- bottom
-const sector15 = new Sector(-10, 150, []); //pillar -- bottom left
+const sector13 = new Sector(-10, 250, []); //pillar -- bottom right
+const sector14 = new Sector(-10, 250, []); //step down -- bottom
+const sector15 = new Sector(-10, 250, []); //pillar -- bottom left
 
-const sector16 = new Sector(-10, 150, []); //step down -- left
+const sector16 = new Sector(-10, 250, []); //step down -- left
 
-const sector17 = new Sector(0, 200, []); //blue center
+const sector17 = new Sector(0, 300, []); //blue center
 //
 
 
@@ -566,7 +566,7 @@ sector17.walls = [l65, l66, l67, l68];
 
 const sectors = [
     sector1, sector2, sector3,
-    sector4, sector5, sector6, 
+    sector4, sector5, sector6,
     sector7, sector8,
 
     sector9, sector10, sector11,
@@ -576,8 +576,8 @@ const sectors = [
 
 const map = [];
 
-for(let s of sectors) {
-    for(let w of s.walls) {
+for (let s of sectors) {
+    for (let w of s.walls) {
         map.push(w);
     }
 }
@@ -662,12 +662,38 @@ class Project3D {
         this.halfSW = W / 2;
         this.fovFactor = this.halfSW / Math.tan(this.fovInRad / 2);
         this.NEAR = 10;
+        this.displayWireFrame = false;;
     }
 
     depthShade(depth) {
         const k = 0.015;      // tweak this
         let s = 255 - depth * k * 255;
         return s < 40 ? 40 : s;
+    }
+
+    drawWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, r, g, b) {
+        drawLine(x1, y1Top, x1, y1Bottom, r, g, b);
+        drawLine(x1, y1Bottom, x2, y2Bottom, r, g, b);
+        drawLine(x2, y2Bottom, x2, y2Top, r, g, b);
+        drawLine(x2, y2Top, x1, y1Top, r, g, b);
+    }
+
+
+    drawWireframe(vertices, r, g, b) {
+        if (vertices.length < 2) return;
+
+        for (let i = 0; i < vertices.length; i++) {
+            const v1 = vertices[i];
+            const v2 = vertices[(i + 1) % vertices.length]; // close the loop
+
+            drawLine(
+                R(v1.x),
+                R(v1.y),
+                R(v2.x),
+                R(v2.y),
+                r, g, b
+            );
+        }
     }
 
     fillPolygonTextured(vertices, texture) {
@@ -758,49 +784,29 @@ class Project3D {
         const currentSector = l.sector;
         const fh = currentSector.fh;
         const ch = currentSector.ch;
-        const wh = ch - fh;
 
         const dx1 = l.x1 - p.x;
         const dy1 = l.y1 - p.y;
         const dx2 = l.x2 - p.x;
         const dy2 = l.y2 - p.y;
 
-        const angleInRad = p.angle * (Math.PI / 180);
+        const a = p.angle * Math.PI / 180;
+        const cos = Math.cos(a);
+        const sin = Math.sin(a);
 
-        let rx1 = dx1 * Math.cos(angleInRad) + dy1 * Math.sin(angleInRad);
-        let ry1 = dx1 * Math.sin(angleInRad) - dy1 * Math.cos(angleInRad);
-        let rx2 = dx2 * Math.cos(angleInRad) + dy2 * Math.sin(angleInRad);
-        let ry2 = dx2 * Math.sin(angleInRad) - dy2 * Math.cos(angleInRad);
+        let rx1 = dx1 * cos + dy1 * sin;
+        let ry1 = dx1 * sin - dy1 * cos;
+        let rx2 = dx2 * cos + dy2 * sin;
+        let ry2 = dx2 * sin - dy2 * cos;
+
 
         if (ry1 <= this.NEAR && ry2 <= this.NEAR) return;
 
         let wx1 = l.x1, wy1 = l.y1;
         let wx2 = l.x2, wy2 = l.y2;
 
-        if (ry1 < this.NEAR || ry2 < this.NEAR) {
-            const t = (this.NEAR - ry1) / (ry2 - ry1);
-
-            const cx = wx1 + (wx2 - wx1) * t;
-            const cy = wy1 + (wy2 - wy1) * t;
-
-            if (ry1 < this.NEAR) {
-                wx1 = cx; wy1 = cy;
-            } else {
-                wx2 = cx; wy2 = cy;
-            }
-
-            const ndx1 = wx1 - p.x;
-            const ndy1 = wy1 - p.y;
-            const ndx2 = wx2 - p.x;
-            const ndy2 = wy2 - p.y;
-
-            rx1 = ndx1 * Math.cos(angleInRad) + ndy1 * Math.sin(angleInRad);
-            ry1 = ndx1 * Math.sin(angleInRad) - ndy1 * Math.cos(angleInRad);
-
-            rx2 = ndx2 * Math.cos(angleInRad) + ndy2 * Math.sin(angleInRad);
-            ry2 = ndx2 * Math.sin(angleInRad) - ndy2 * Math.cos(angleInRad);
-        }
-
+        if (ry1 < this.NEAR) ry1 = this.NEAR;
+        if (ry2 < this.NEAR) ry2 = this.NEAR;
 
         let sx1 = (rx1 * this.fovFactor) / ry1;
         let sx2 = (rx2 * this.fovFactor) / ry2;
@@ -808,8 +814,8 @@ class Project3D {
         let screenX1 = (this.halfSW + sx1);
         let screenX2 = (this.halfSW + sx2);
 
-        let projH1 = (wh * this.fovFactor) / ry1;
-        let projH2 = (wh * this.fovFactor) / ry2;
+        let projH1 = ((ch + eyeHeightInWorld) * this.fovFactor) / ry1;
+        let projH2 = ((ch + eyeHeightInWorld) * this.fovFactor) / ry2;
 
         let sy1T = ((H / 2) - (projH1 / 2));
         let sy2T = ((H / 2) - (projH2 / 2));
@@ -833,7 +839,6 @@ class Project3D {
         const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
         const fh = sector.fh;
         const ch = sector.ch;
-        const wh = ch - fh;
 
         const dx1 = l.x1 - p.x;
         const dy1 = l.y1 - p.y;
@@ -849,10 +854,11 @@ class Project3D {
         let rx2 = dx2 * cos + dy2 * sin;
         let ry2 = dx2 * sin - dy2 * cos;
 
-        const near = this.NEAR;
+        let wx1 = l.x1, wy1 = l.y1;
+        let wx2 = l.x2, wy2 = l.y2;
 
-        if (ry1 < near) ry1 = near;
-        if (ry2 < near) ry2 = near;
+        if (ry1 < this.NEAR) ry1 = this.NEAR;
+        if (ry2 < this.NEAR) ry2 = this.NEAR;
 
         let sx1 = (rx1 * this.fovFactor) / ry1;
         let sx2 = (rx2 * this.fovFactor) / ry2;
@@ -860,8 +866,8 @@ class Project3D {
         let screenX1 = (this.halfSW + sx1);
         let screenX2 = (this.halfSW + sx2);
 
-        let projH1 = (wh * this.fovFactor) / ry1;
-        let projH2 = (wh * this.fovFactor) / ry2;
+        let projH1 = ((ch + eyeHeightInWorld) * this.fovFactor) / ry1;
+        let projH2 = ((ch + eyeHeightInWorld) * this.fovFactor) / ry2;
 
         let sy1T = ((H / 2) - (projH1 / 2));
         let sy2T = ((H / 2) - (projH2 / 2));
@@ -874,8 +880,7 @@ class Project3D {
             sy1T, sy2T,
             screenY1, screenY2,
             ry1, ry2,
-            wx1: l.x1, wy1: l.y1,
-            wx2: l.x2, wy2: l.y2,
+            wx1, wy1, wx2, wy2,
             fh, ch
         };
     }
@@ -958,6 +963,7 @@ class Project3D {
             const ceilingVert = [];
             const floorVert = [];
 
+
             for (const l of s.walls) {
                 const w = this.projectWall(l);
 
@@ -972,7 +978,7 @@ class Project3D {
                 floorVert.push({ x: c.screenX2, y: c.screenY2, wx: c.wx2, wy: c.wy2, ry: c.ry2 });
             }
 
-            
+
 
             for (let w of projectedWalls) {
                 const l = w.wall;
@@ -1008,19 +1014,34 @@ class Project3D {
                     let neighCeil2 = ((H / 2) - (nProjH2 / 2));
 
                     if (nFh < fh) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
+
+                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), 255, 0, 0);
+                        else this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
                     }
                     if (nCh > ch) {
-                        this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
+                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), 255, 0, 0);
+                        else this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
+
                     }
 
                 } else {
-                    this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
+                    if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), 255, 0, 0);
+                    else this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
+
                 }
             }
 
-            this.fillPolygonTextured(ceilingVert, s.cTexture);
-            this.fillPolygonTextured(floorVert, s.fTexture);
+
+
+            if (this.displayWireFrame) {
+                this.drawWireframe(ceilingVert, 0, 255, 0);
+                this.drawWireframe(floorVert, 0, 0, 255);
+            } else {
+                this.fillPolygonTextured(ceilingVert, s.cTexture);
+                this.fillPolygonTextured(floorVert, s.fTexture);
+
+            }
+
 
 
         }
@@ -1099,7 +1120,7 @@ const render = (currentTime) => {
         // });
     }
 
-    writeCoord(mcx, mcy, mcx, mcy); 
+    writeCoord(mcx, mcy, mcx, mcy);
 };
 
 function engine(currentTime) {
