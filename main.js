@@ -60,13 +60,25 @@ function putPixel(x, y, r, g, b) {
 function putPixelZ(x, y, z, r, g, b) {
     if (x < 0 || x >= W || y < 0 || y >= H) return;
     const idx = y * W + x;
-    if (z >= project3D.zBuffer[idx]) return; // skip if farther
+    if (z >= project3D.zBuffer[idx]) return;
     project3D.zBuffer[idx] = z;
 
+    // --- FOG CALCULATION ---
+    const maxDist = 700; // Anything beyond this is pitch black
+    const minDist = 50;  // Anything closer than this is full brightness
+
+    // Calculate shade: 1.0 (close) to 0.0 (far)
+    let shade = (maxDist - z) / (maxDist - minDist);
+
+    // Clamp shade between 0 and 1
+    if (shade < 0) shade = 0;
+    if (shade > 1) shade = 1;
+
+    // Apply shade to colors
     const i = idx * 4;
-    pixels[i] = r;
-    pixels[i + 1] = g;
-    pixels[i + 2] = b;
+    pixels[i] = r * shade;
+    pixels[i + 1] = g * shade;
+    pixels[i + 2] = b * shade;
     pixels[i + 3] = 255;
 }
 
@@ -80,11 +92,11 @@ function loadTexture(img) {
 }
 
 const wallTexImg = new Image();
-wallTexImg.src = './resource/doom-wall.png';
+wallTexImg.src = './resource/og-metal-wall.png';
 const ceilTexImg = new Image();
-ceilTexImg.src = './resource/doom-ceiling.png';
+ceilTexImg.src = './resource/ceiling-2.png';
 const floorTexImg = new Image();
-floorTexImg.src = './resource/floor2.jpg';
+floorTexImg.src = './resource/floor.png';
 
 let WALL_TEX;
 let FLOOR_TEX;
@@ -172,8 +184,8 @@ class Player {
         this.eyeLevel = -40;
 
         this.rotVel = 0;
-        this.speed = 2.5;
-        this.rotSpeed = 2;
+        this.speed = 3;
+        this.rotSpeed = 2.5;
         this.dx = 0;
         this.dy = 0;
         this.angle = 90;
@@ -390,44 +402,125 @@ class Sector {
 }
 
 
-const scale = 8;
+
 const p = new Player(10, 10);
-const sector1 = new Sector(0, 130, []); // Normal room
-const sector2 = new Sector(-10, 100, []); // Raised platform
-const sector3 = new Sector(-20, 200, []); // Raised platform
 
-const l1 = new Line(20, 15, 30, 5);
-const l2 = new Line(30, 5, 50, 5);
-const l3 = new Line(50, 5, 60, 15);
-const l4 = new Line(60, 15, 55, 30);
-const l5 = new Line(55, 30, 30, 30, true, sector2);
-const l6 = new Line(30, 30, 20, 15);
 
-sector1.walls = [l1, l2, l3, l4, l5, l6];
+const sector1 = new Sector(-20, 100, []); //top left
+const sector2 = new Sector(-20, 100, []); //top
+const sector3 = new Sector(-20, 100, []); //top right
 
-const l5b = new Line(30, 30, 55, 30, true, sector1);
-const l7 = new Line(55, 30, 65, 40);
-const l8 = new Line(65, 40, 60, 55);
-const l9 = new Line(60, 55, 30, 55, true, sector3);
-const l10 = new Line(30, 55, 20, 45);
-const l11 = new Line(20, 45, 30, 30); // Connects back to the start of l5b
+const sector4 = new Sector(-20, 100, []); //left
+const sector5 = new Sector(-20, 100, []); //bottom left
 
-sector2.walls = [l5b, l7, l8, l9, l10, l11];
+const sector6 = new Sector(-20, 100, []); //bottom
+const sector7 = new Sector(-20, 100, []); //bottom right
 
-const l9b = new Line(60, 55, 30, 55, true, sector2); // top line
-const l12 = new Line(60, 55, 70, 75); // right line
-const l13 = new Line(70, 75, 60, 85); // right line
-const l14 = new Line(60, 85, 30, 85); // bottom line
-const l15 = new Line(30, 85, 20, 75); // left line
-const l16 = new Line(20, 75, 30, 55); // left line
+const sector8 = new Sector(-20, 100, []); //right
 
-sector3.walls = [l9b, l12, l13, l14, l15, l16];
+const l1 = new Line(118, 90, 200, 90);
+const l2 = new Line(200, 90, 200, 160, true, sector2);
+const l3 = new Line(200, 160, 118, 160, true, sector4);
+const l4 = new Line(118, 160, 118, 90);
 
-const map = [
-    l1, l2, l3, l4, l5, l6,
-    l5b, l7, l8, l9, l10, l11,
-    l9b, l12, l13, l14, l15, l16
-];
+sector1.walls = [l1, l2, l3, l4];
+
+const l5 = new Line(200, 160, 200, 90, true, sector1); //l2
+const l6 = new Line(200, 90, 278, 90);
+const l7 = new Line(278, 90, 278, 160, true, sector3);
+const l8 = new Line(278, 160, 200, 160); // sector soon.
+
+sector2.walls = [l5, l6, l7, l8];
+
+const l9 = new Line(278, 160, 278, 90, true, sector2); // l7
+const l10 = new Line(278, 90, 360, 90);
+const l11 = new Line(360, 90, 360, 160);
+const l12 = new Line(360, 160, 278, 160, true, sector8);
+
+sector3.walls = [l9, l10, l11, l12];
+
+const l13 = new Line(118, 160, 200, 160, true, sector1); //l3
+const l14 = new Line(200, 160, 200, 280); // sector soon.
+const l15 = new Line(200, 280, 118, 280, true, sector5);
+const l16 = new Line(118, 280, 118, 160);
+
+sector4.walls = [l13, l14, l15, l16];
+
+const l17 = new Line(118, 280, 200, 280, true, sector4); // l15
+const l18 = new Line(200, 280, 200, 350, true, sector6);
+const l19 = new Line(200, 350, 118, 350);
+const l20 = new Line(118, 350, 118, 280);
+
+sector5.walls = [l17, l18, l19, l20];
+
+const l21 = new Line(200, 350, 200, 280, true, sector5); //l18
+const l22 = new Line(200, 280, 278, 280) //sector soon
+const l23 = new Line(278, 280, 278, 350, true, sector7);
+const l24 = new Line(278, 350, 200, 350);
+
+sector6.walls = [l21, l22, l23, l24];
+
+const l25 = new Line(278, 350, 278, 280, true, sector6); // l23
+const l26 = new Line(278, 280, 360, 280, true, sector8);
+const l27 = new Line(360, 280, 360, 350);
+const l28 = new Line(360, 350, 278, 350);
+
+sector7.walls = [l25, l26, l27, l28];
+
+const l29 = new Line(360, 280, 278, 280, true, sector7);
+const l30 = new Line(278, 280, 278, 160); // sector soon
+const l31 = new Line(278, 160, 360, 160, true, sector3); // l12
+const l32 = new Line(360, 160, 360, 280) //sector soon
+
+sector8.walls = [l29, l30, l31, l32];
+
+const sectors = [sector1, sector2, sector3, sector4, sector5, sector6, sector7, sector8];
+
+const map = [];
+
+for(let s of sectors) {
+    for(let w of s.walls) {
+        map.push(w);
+    }
+}
+
+const scale = 1.5;
+// const sector1 = new Sector(0, 130, []); // Normal room
+// const sector2 = new Sector(-10, 100, []); // Raised platform
+// const sector3 = new Sector(-20, 200, []); // Raised platform
+
+// const l1 = new Line(20, 15, 30, 5);
+// const l2 = new Line(30, 5, 50, 5);
+// const l3 = new Line(50, 5, 60, 15);
+// const l4 = new Line(60, 15, 55, 30);
+// const l5 = new Line(55, 30, 30, 30, true, sector2);
+// const l6 = new Line(30, 30, 20, 15);
+
+// sector1.walls = [l1, l2, l3, l4, l5, l6];
+
+// const l5b = new Line(30, 30, 55, 30, true, sector1);
+// const l7 = new Line(55, 30, 65, 40);
+// const l8 = new Line(65, 40, 60, 55);
+// const l9 = new Line(60, 55, 30, 55, true, sector3);
+// const l10 = new Line(30, 55, 20, 45);
+// const l11 = new Line(20, 45, 30, 30); // Connects back to the start of l5b
+
+// sector2.walls = [l5b, l7, l8, l9, l10, l11];
+
+// const l9b = new Line(60, 55, 30, 55, true, sector2); // top line
+// const l12 = new Line(60, 55, 70, 75); // right line
+// const l13 = new Line(70, 75, 60, 85); // right line
+// const l14 = new Line(60, 85, 30, 85); // bottom line
+// const l15 = new Line(30, 85, 20, 75); // left line
+// const l16 = new Line(20, 75, 30, 55); // left line
+
+// sector3.walls = [l9b, l12, l13, l14, l15, l16];
+
+// const map = [
+//     l1, l2, l3, l4, l5, l6,
+//     l5b, l7, l8, l9, l10, l11,
+//     l9b, l12, l13, l14, l15, l16
+// ];
 
 
 let minX = Infinity;
@@ -445,7 +538,7 @@ map.forEach(line => {
     line.y2 = (line.y2 - minY) * scale;
 });
 
-const sectors = [sector1, sector2, sector3];
+// const sectors = [sector1, sector2, sector3];
 
 
 sectors.forEach(sector => { sector.assignSectorToWalls(); });
@@ -473,68 +566,10 @@ class Project3D {
         this.NEAR = 10;
     }
 
-    drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
-        if (!texture) return;
-
-        if (x2 < x1) {
-            [x1, x2] = [x2, x1];
-            [y1Top, y2Top] = [y2Top, y1Top];
-            [y1Bottom, y2Bottom] = [y2Bottom, y1Bottom];
-            [ry1, ry2] = [ry2, ry1];
-        }
-
-        const dx = x2 - x1;
-        if (dx <= 0) return;
-
-        const iz1 = 1 / ry1;
-        const iz2 = 1 / ry2;
-        const u1 = 0 * iz1;
-        const u2 = texture.width * iz2;
-
-        for (let x = x1; x <= x2; x++) {
-            const t = (x - x1) / dx;
-            const currentIZ = iz1 + (iz2 - iz1) * t;
-            const currentUZ = u1 + (u2 - u1) * t;
-            const texX = (currentUZ / currentIZ) | 0;
-            // const wrappedTexX = Math.abs(texX % texture.width);
-            let wrappedTexX = texX;
-            if (wrappedTexX >= texture.width) wrappedTexX -= texture.width;
-
-            const top = y1Top + (y2Top - y1Top) * t;
-            const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
-            const depth = ry1 + t * (ry2 - ry1);
-
-            if (bottom <= top) continue;
-
-            // Only skip for opaque walls
-            if (!isPortal && depth >= zBuffer[x]) continue;
-            if (!isPortal) zBuffer[x] = depth;
-
-            const colHeight = bottom - top;
-            const vStep = texture.height / colHeight;
-            let v = 0;
-
-            const ry = 1 / currentIZ;
-            const shade = 255 - ry * 0.15;
-
-            for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
-                // const texY = (v | 0) % texture.height;
-                let texY = v | 0;
-                if (texY >= texture.height) texY -= texture.height;
-
-                const i = (texY * texture.width + wrappedTexX) * 4;
-
-                if (!(isPortal && depth >= zBuffer[x])) {
-                    putPixelZ(
-                        x, y, depth,
-                        (texture.data[i] * shade) >> 8,
-                        (texture.data[i + 1] * shade) >> 8,
-                        (texture.data[i + 2] * shade) >> 8
-                    );
-                }
-                v += vStep;
-            }
-        }
+    depthShade(depth) {
+        const k = 0.015;      // tweak this
+        let s = 255 - depth * k * 255;
+        return s < 40 ? 40 : s;
     }
 
     fillPolygonTextured(vertices, texture) {
@@ -554,69 +589,68 @@ class Project3D {
     }
 
     drawTexturedTriangle(v0, v1, v2, texture) {
-        // bounding box
+        // 1. Calculate Bounding Box
         const minX = Math.max(0, Math.floor(Math.min(v0.x, v1.x, v2.x)));
         const maxX = Math.min(W - 1, Math.ceil(Math.max(v0.x, v1.x, v2.x)));
         const minY = Math.max(0, Math.floor(Math.min(v0.y, v1.y, v2.y)));
         const maxY = Math.min(H - 1, Math.ceil(Math.max(v0.y, v1.y, v2.y)));
 
-        v0.invZ = 1 / v0.ry;
-        v1.invZ = 1 / v1.ry;
-        v2.invZ = 1 / v2.ry;
+        if (minX > maxX || minY > maxY) return;
 
-        v0.wxz = v0.wx * v0.invZ;
-        v0.wyz = v0.wy * v0.invZ;
-        v1.wxz = v1.wx * v1.invZ;
-        v1.wyz = v1.wy * v1.invZ;
-        v2.wxz = v2.wx * v2.invZ;
-        v2.wyz = v2.wy * v2.invZ;
+        // 2. Perspective Pre-calc
+        v0.invZ = 1 / v0.ry; v1.invZ = 1 / v1.ry; v2.invZ = 1 / v2.ry;
+        v0.wxz = v0.wx * v0.invZ; v0.wyz = v0.wy * v0.invZ;
+        v1.wxz = v1.wx * v1.invZ; v1.wyz = v1.wy * v1.invZ;
+        v2.wxz = v2.wx * v2.invZ; v2.wyz = v2.wy * v2.invZ;
 
-        const area =
-            (v1.x - v0.x) * (v2.y - v0.y) -
-            (v2.x - v0.x) * (v1.y - v0.y);
+        const area = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
+        if (Math.abs(area) < 0.1) return;
+        const invArea = 1 / area;
 
-        if (area === 0) return;
+        // 3. Gradients (how much weights change per pixel step)
+        const dw0dx = (v1.y - v2.y) * invArea;
+        const dw1dx = (v2.y - v0.y) * invArea;
+
+        const texW = texture.width;
+        const texH = texture.height;
+        const worldScale = 0.02;
+        const eps = -1e-4; // The "Gap Killer"
 
         for (let y = minY; y <= maxY; y++) {
-            for (let x = minX; x <= maxX; x++) {
+            // Calculate weights for the start of this row (at minX)
+            let w0 = ((v1.x - minX) * (v2.y - y) - (v2.x - minX) * (v1.y - y)) * invArea;
+            let w1 = ((v2.x - minX) * (v0.y - y) - (v0.x - minX) * (v2.y - y)) * invArea;
 
-                const w0 =
-                    ((v1.x - x) * (v2.y - y) - (v2.x - x) * (v1.y - y)) / area;
-                const w1 =
-                    ((v2.x - x) * (v0.y - y) - (v0.x - x) * (v2.y - y)) / area;
+            for (let x = minX; x <= maxX; x++) {
                 const w2 = 1 - w0 - w1;
 
-                if (w0 < 0 || w1 < 0 || w2 < 0) continue;
+                // Use epsilon to prevent seams between shared edges
+                if (w0 >= eps && w1 >= eps && w2 >= eps) {
+                    const invZ = w0 * v0.invZ + w1 * v1.invZ + w2 * v2.invZ;
+                    const depth = 1 / invZ;
 
-                const invZ =
-                    w0 * v0.invZ +
-                    w1 * v1.invZ +
-                    w2 * v2.invZ;
+                    // Depth Check
+                    if (depth < zBuffer[x]) {
+                        const wx = (w0 * v0.wxz + w1 * v1.wxz + w2 * v2.wxz) * depth;
+                        const wy = (w0 * v0.wyz + w1 * v1.wyz + w2 * v2.wyz) * depth;
 
-                const wx =
-                    (w0 * v0.wxz +
-                        w1 * v1.wxz +
-                        w2 * v2.wxz) / invZ;
+                        // Stable UVs
+                        let u = Math.floor(wx * texW * worldScale) % texW;
+                        let v = Math.floor(wy * texH * worldScale) % texH;
+                        if (u < 0) u += texW;
+                        if (v < 0) v += texH;
 
-                const wy =
-                    (w0 * v0.wyz +
-                        w1 * v1.wyz +
-                        w2 * v2.wyz) / invZ;
-
-                const depth = 1 / invZ;
-
-                if (depth >= zBuffer[x]) continue;
-
-                const u = ((wx * texture.width * 0.02) | 0) % texture.width;
-                const v = ((wy * texture.height * 0.02) | 0) % texture.height;
-
-                const i = (v * texture.width + u) * 4;
-                putPixelZ(
-                    x, y, depth,
-                    texture.data[i],
-                    texture.data[i + 1],
-                    texture.data[i + 2]
-                );
+                        const i = (v * texW + u) * 4;
+                        putPixelZ(x, y, depth,
+                            texture.data[i],
+                            texture.data[i + 1],
+                            texture.data[i + 2]
+                        );
+                    }
+                }
+                // Step horizontally
+                w0 += dw0dx;
+                w1 += dw1dx;
             }
         }
     }
@@ -748,6 +782,69 @@ class Project3D {
         };
     }
 
+    drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
+        if (!texture) return;
+
+        if (x2 < x1) {
+            [x1, x2] = [x2, x1];
+            [y1Top, y2Top] = [y2Top, y1Top];
+            [y1Bottom, y2Bottom] = [y2Bottom, y1Bottom];
+            [ry1, ry2] = [ry2, ry1];
+        }
+
+        const dx = x2 - x1;
+        if (dx <= 0) return;
+
+        const iz1 = 1 / ry1;
+        const iz2 = 1 / ry2;
+        const u1 = 0 * iz1;
+        const u2 = texture.width * iz2;
+
+        for (let x = x1; x <= x2; x++) {
+            const t = (x - x1) / dx;
+            const currentIZ = iz1 + (iz2 - iz1) * t;
+            const currentUZ = u1 + (u2 - u1) * t;
+            const texX = (currentUZ / currentIZ) | 0;
+            // const wrappedTexX = Math.abs(texX % texture.width);
+            let wrappedTexX = texX;
+            if (wrappedTexX >= texture.width) wrappedTexX -= texture.width;
+
+            const top = y1Top + (y2Top - y1Top) * t;
+            const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
+            const depth = ry1 + t * (ry2 - ry1);
+
+            if (bottom <= top) continue;
+
+            // Only skip for opaque walls
+            if (!isPortal && depth >= zBuffer[x]) continue;
+            if (!isPortal) zBuffer[x] = depth;
+
+            const colHeight = bottom - top;
+            const vStep = texture.height / colHeight;
+            let v = 0;
+
+            const ry = 1 / currentIZ;
+            const shade = 255 - ry * 0.15;
+
+            for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
+                // const texY = (v | 0) % texture.height;
+                let texY = v | 0;
+                if (texY >= texture.height) texY -= texture.height;
+
+                const i = (texY * texture.width + wrappedTexX) * 4;
+
+                if (!(isPortal && depth >= zBuffer[x])) {
+                    putPixelZ(
+                        x, y, depth,
+                        (texture.data[i] * shade) >> 8,
+                        (texture.data[i + 1] * shade) >> 8,
+                        (texture.data[i + 2] * shade) >> 8
+                    );
+                }
+                v += vStep;
+            }
+        }
+    }
 
     project() {
         if (!p.currentSector) return;
@@ -776,6 +873,8 @@ class Project3D {
                 floorVert.push({ x: c.screenX1, y: c.screenY1, wx: c.wx1, wy: c.wy1, ry: c.ry1 });
                 floorVert.push({ x: c.screenX2, y: c.screenY2, wx: c.wx2, wy: c.wy2, ry: c.ry2 });
             }
+
+            this.fillPolygonTextured(floorVert, s.fTexture);
 
             for (let w of projectedWalls) {
                 const l = w.wall;
@@ -821,9 +920,9 @@ class Project3D {
                     this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
                 }
             }
-            
+
             this.fillPolygonTextured(ceilingVert, s.cTexture);
-            this.fillPolygonTextured(floorVert, s.fTexture);
+
 
         }
     }
@@ -831,6 +930,23 @@ class Project3D {
 
 
 let project3D = new Project3D();
+
+let mcx;
+let mcy;
+
+c.addEventListener('mousemove', (e) => {
+    const rect = c.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const cx = Math.floor(mx / SCALE);
+    const cy = Math.floor(my / SCALE);
+
+    if (cx < 0 || cx >= W || cy < 0 || cy >= H) return;
+
+    mcx = cx;
+    mcy = cy;
+});
 
 const update = () => {
     for (let i = 0; i < W * H; i++) zBuffer[i] = Infinity;
@@ -883,6 +999,8 @@ const render = (currentTime) => {
             writeCoord(l.ox2, l.oy2, l.x2, l.y2);
         });
     }
+
+    writeCoord(mcx, mcy, mcx, mcy); 
 };
 
 function engine(currentTime) {
