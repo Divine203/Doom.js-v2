@@ -1111,7 +1111,7 @@ const render = (currentTime) => {
         }
     }
 
-    writeUI();
+    // writeUI();
 
     if (!is3D) {
         // map.forEach((l) => {
@@ -1120,7 +1120,7 @@ const render = (currentTime) => {
         // });
     }
 
-    writeCoord(mcx, mcy, mcx, mcy);
+    // writeCoord(mcx, mcy, mcx, mcy);
 };
 
 function engine(currentTime) {

@@ -36,7 +36,7 @@ const controls = () => {
                 if (!K.Q) K.E = true;
                 is3D = !is3D;
 
-                SCALE = is3D ? 5 : 1;
+                SCALE = is3D ? 4 : 1;
                 W = c.width / SCALE;
                 H = c.height / SCALE;
                 buffer.width = W;
