@@ -437,47 +437,60 @@ const sector17 = new Sector(0, 300, []); //blue center
 //
 
 
+//room around stairs
+const sector18 = new Sector(-20, 200, []); //top left
+const sector19 = new Sector(-20, 200, []); //left
+const sector20 = new Sector(-20, 200, []); //bottom left
+
+const sector21 = new Sector(-20, 200, []); // top
+const sector22 = new Sector(-20, 200, []); // center space infront of stairs
+const sector23 = new Sector(-20, 200, []); // bottom
 
 
-const l1 = new Line(118, 90, 250, 90);
-const l2 = new Line(250, 90, 250, 160, true, sector2);
-const l3 = new Line(250, 160, 118, 160, true, sector4);
-const l4 = new Line(118, 160, 118, 90);
+// stairs
+
+
+
+
+const l1 = new Line(48, 40, 180, 40);
+const l2 = new Line(180, 40, 180, 160, true, sector2);
+const l3 = new Line(180, 160, 48, 160, true, sector4);
+const l4 = new Line(48, 160, 48, 40);
 
 sector1.walls = [l1, l2, l3, l4];
 
-const l5 = new Line(250, 160, 250, 90, true, sector1); //l2
-const l6 = new Line(250, 90, 328, 90);
-const l7 = new Line(328, 90, 328, 160, true, sector3);
-const l8 = new Line(328, 160, 250, 160, true, sector10); // l37
+const l5 = new Line(180, 160, 180, 40, true, sector1); //l2
+const l6 = new Line(180, 40, 328, 40);
+const l7 = new Line(328, 40, 328, 160, true, sector3);
+const l8 = new Line(328, 160, 180, 160, true, sector10); // l37
 
 sector2.walls = [l5, l6, l7, l8];
 
-const l9 = new Line(328, 160, 328, 90, true, sector2); // l7
-const l10 = new Line(328, 90, 400, 90);
-const l11 = new Line(400, 90, 400, 160);
+const l9 = new Line(328, 160, 328, 40, true, sector2); // l7
+const l10 = new Line(328, 40, 400, 40);
+const l11 = new Line(400, 40, 400, 160);
 const l12 = new Line(400, 160, 328, 160, true, sector8);
 
 sector3.walls = [l9, l10, l11, l12];
 
-const l13 = new Line(118, 160, 250, 160, true, sector1); //l3
-const l14 = new Line(250, 160, 250, 280, true, sector16); // l64.
-const l15 = new Line(250, 280, 118, 280, true, sector5);
-const l16 = new Line(118, 280, 118, 160);
+const l13 = new Line(48, 160, 180, 160, true, sector1); //l3
+const l14 = new Line(180, 160, 180, 280, true, sector16); // l64.
+const l15 = new Line(180, 280, 48, 280, true, sector5);
+const l16 = new Line(48, 280, 48, 160);
 
 sector4.walls = [l13, l14, l15, l16];
 
-const l17 = new Line(118, 280, 250, 280, true, sector4); // l15
-const l18 = new Line(250, 280, 250, 350, true, sector6);
-const l19 = new Line(250, 350, 118, 350);
-const l20 = new Line(118, 350, 118, 280);
+const l17 = new Line(48, 280, 180, 280, true, sector4); // l15
+const l18 = new Line(180, 280, 180, 350, true, sector6);
+const l19 = new Line(180, 350, 48, 350);
+const l20 = new Line(48, 350, 48, 280);
 
 sector5.walls = [l17, l18, l19, l20];
 
-const l21 = new Line(250, 350, 250, 280, true, sector5); //l18
-const l22 = new Line(250, 280, 328, 280, true, sector14) //l55
+const l21 = new Line(180, 350, 180, 280, true, sector5); //l18
+const l22 = new Line(180, 280, 328, 280, true, sector14) //l55
 const l23 = new Line(328, 280, 328, 350, true, sector7);
-const l24 = new Line(328, 350, 250, 350);
+const l24 = new Line(328, 350, 180, 350);
 
 sector6.walls = [l21, l22, l23, l24];
 
@@ -491,23 +504,23 @@ sector7.walls = [l25, l26, l27, l28];
 const l29 = new Line(400, 280, 328, 280, true, sector7);
 const l30 = new Line(328, 280, 328, 160, true, sector12); // l46
 const l31 = new Line(328, 160, 400, 160, true, sector3); // l12
-const l32 = new Line(400, 160, 400, 280) //sector soon
+const l32 = new Line(400, 160, 400, 280, true, sector19); //sector soon
 
 sector8.walls = [l29, l30, l31, l32];
 
 
 //center stage lines
-const l33 = new Line(250, 160, 260, 160);
-const l34 = new Line(260, 160, 260, 170);
-const l35 = new Line(260, 170, 250, 170);
-const l36 = new Line(250, 170, 250, 160);
+const l33 = new Line(180, 160, 190, 160);
+const l34 = new Line(190, 160, 190, 170);
+const l35 = new Line(190, 170, 180, 170);
+const l36 = new Line(180, 170, 180, 160);
 
 sector9.walls = [l33, l34, l35, l36]; // pillar1
 
-const l37 = new Line(260, 160, 318, 160, true, sector2);
+const l37 = new Line(190, 160, 318, 160, true, sector2);
 const l38 = new Line(318, 160, 318, 170);
-const l39 = new Line(318, 170, 260, 170, true, sector17); //sector soon
-const l40 = new Line(260, 170, 260, 160);
+const l39 = new Line(318, 170, 190, 170, true, sector17); //sector soon
+const l40 = new Line(190, 170, 190, 160);
 
 sector10.walls = [l37, l38, l39, l40];
 
@@ -532,37 +545,79 @@ const l52 = new Line(318, 280, 318, 270);
 
 sector13.walls = [l49, l50, l51, l52]; // pillar3
 
-const l53 = new Line(260, 270, 318, 270, true, sector17); //sector soon
+const l53 = new Line(190, 270, 318, 270, true, sector17); //sector soon
 const l54 = new Line(318, 270, 318, 280);
-const l55 = new Line(318, 280, 260, 280, true, sector6);
-const l56 = new Line(260, 280, 260, 270);
+const l55 = new Line(318, 280, 190, 280, true, sector6);
+const l56 = new Line(190, 280, 190, 270);
 
 sector14.walls = [l53, l54, l55, l56];
 
-const l57 = new Line(250, 270, 260, 270);
-const l58 = new Line(260, 270, 260, 280);
-const l59 = new Line(260, 280, 250, 280);
-const l60 = new Line(250, 280, 250, 270);
+const l57 = new Line(180, 270, 190, 270);
+const l58 = new Line(190, 270, 190, 280);
+const l59 = new Line(190, 280, 180, 280);
+const l60 = new Line(180, 280, 180, 270);
 
 sector15.walls = [l57, l58, l59, l60]; // pillar4
 
-const l61 = new Line(250, 170, 260, 170);
-const l62 = new Line(260, 170, 260, 270, true, sector17); //sector soon
-const l63 = new Line(260, 270, 250, 270);
-const l64 = new Line(250, 270, 250, 170, true, sector4);
+const l61 = new Line(180, 170, 190, 170);
+const l62 = new Line(190, 170, 190, 270, true, sector17); //sector soon
+const l63 = new Line(190, 270, 180, 270);
+const l64 = new Line(180, 270, 180, 170, true, sector4);
 
 sector16.walls = [l61, l62, l63, l64];
 
-const l65 = new Line(260, 170, 318, 170, true, sector10);
+const l65 = new Line(190, 170, 318, 170, true, sector10);
 const l66 = new Line(318, 170, 318, 270, true, sector12);
-const l67 = new Line(318, 270, 260, 270, true, sector14);
-const l68 = new Line(260, 270, 260, 170, true, sector16);
+const l67 = new Line(318, 270, 190, 270, true, sector14);
+const l68 = new Line(190, 270, 190, 170, true, sector16);
 
 sector17.walls = [l65, l66, l67, l68];
 //
 
+// room around stairs
+const l69 = new Line(400, 40, 450, 40);
+const l70 = new Line(450, 40, 450, 160, true, sector21); // portal soon
+const l71 = new Line(450, 160, 400, 160, true, sector19);
+const l72 = new Line(400, 160, 400, 40, true, sector8);
 
+sector18.walls = [l69, l70, l71, l72];
 
+const l73 = new Line(400, 160, 450, 160, true, sector18);
+const l74 = new Line(450, 160, 450, 280, true, sector22);
+const l75 = new Line(450, 280, 400, 280, true, sector20);
+const l76 = new Line(400, 280, 400, 160, true, sector8);
+
+sector19.walls = [l73, l74, l75, l76];
+
+const l77 = new Line(400, 280, 450, 280, true, sector19);
+const l78 = new Line(450, 280, 450, 350, true, sector23);
+const l79 = new Line(450, 350, 400, 350);
+const l80 = new Line(400, 350, 400, 280, true, sector8);
+
+sector20.walls = [l77, l78, l79, l80];
+
+const l81 = new Line(450, 40, 600, 40);
+const l82 = new Line(600, 40, 600, 160);
+const l83 = new Line(600, 160, 450, 160, true, sector22);
+const l84 = new Line(450, 160, 450, 40, true, sector18);
+
+sector21.walls = [l81, l82, l83, l84];
+
+const l85 = new Line(450, 160, 500, 160, true, sector21);
+const l86 = new Line(500, 160, 500, 280); // portal stairs soon
+const l87 = new Line(500, 280, 450, 280, true, sector23);
+const l88 = new Line(450, 280, 450, 160, true, sector19);
+
+sector22.walls = [l85, l86, l87, l88];
+
+const l89 = new Line(450, 280, 600, 280, true, sector22);
+const l90 = new Line(600, 280, 600, 350);
+const l91 = new Line(600, 350, 450, 350);
+const l92 = new Line(450, 350, 450, 280, true, sector20);
+
+sector23.walls = [l89, l90, l91, l92];
+
+//
 
 const sectors = [
     sector1, sector2, sector3,
@@ -571,7 +626,10 @@ const sectors = [
 
     sector9, sector10, sector11,
     sector12, sector13, sector14,
-    sector15, sector16, sector17
+    sector15, sector16, sector17,
+
+    sector18, sector19, sector20,
+    sector21, sector22, sector23
 ];
 
 const map = [];
@@ -582,7 +640,7 @@ for (let s of sectors) {
     }
 }
 
-const scale = 2;
+const scale = 1.5;
 // const sector1 = new Sector(0, 130, []); // Normal room
 // const sector2 = new Sector(-10, 100, []); // Raised platform
 // const sector3 = new Sector(-20, 200, []); // Raised platform
@@ -1114,10 +1172,10 @@ const render = (currentTime) => {
     // writeUI();
 
     if (!is3D) {
-        // map.forEach((l) => {
-        //     writeCoord(l.ox1, l.oy1, l.x1, l.y1);
-        //     writeCoord(l.ox2, l.oy2, l.x2, l.y2);
-        // });
+        map.forEach((l) => {
+            // writeCoord(l.ox1, l.oy1, l.x1, l.y1);
+            // writeCoord(l.ox2, l.oy2, l.x2, l.y2);
+        });
     }
 
     // writeCoord(mcx, mcy, mcx, mcy);
