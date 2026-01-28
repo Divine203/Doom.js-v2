@@ -34,3 +34,69 @@
 //     l5b, l7, l8, l9, l10, l11,
 //     l9b, l12, l13, l14, l15, l16
 // ];
+
+
+
+    //  drawTexturedWallOld(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
+    //     if (!texture) return;
+
+    //     if (x2 < x1) {
+    //         [x1, x2] = [x2, x1];
+    //         [y1Top, y2Top] = [y2Top, y1Top];
+    //         [y1Bottom, y2Bottom] = [y2Bottom, y1Bottom];
+    //         [ry1, ry2] = [ry2, ry1];
+    //     }
+
+    //     const dx = x2 - x1;
+    //     if (dx <= 0) return;
+
+    //     const iz1 = 1 / ry1;
+    //     const iz2 = 1 / ry2;
+    //     const u1 = 0 * iz1;
+    //     const u2 = texture.width * iz2;
+
+    //     for (let x = x1; x <= x2; x++) {
+    //         const t = (x - x1) / dx;
+    //         const currentIZ = iz1 + (iz2 - iz1) * t;
+    //         const currentUZ = u1 + (u2 - u1) * t;
+    //         const texX = (currentUZ / currentIZ) | 0;
+    //         // const wrappedTexX = Math.abs(texX % texture.width);
+    //         let wrappedTexX = texX;
+    //         if (wrappedTexX >= texture.width) wrappedTexX -= texture.width;
+
+    //         const top = y1Top + (y2Top - y1Top) * t;
+    //         const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
+    //         const depth = ry1 + t * (ry2 - ry1);
+
+    //         if (bottom <= top) continue;
+
+    //         // Only skip for opaque walls
+    //         if (!isPortal && depth >= zBuffer[x]) continue;
+    //         if (!isPortal) zBuffer[x] = depth;
+
+    //         const colHeight = bottom - top;
+    //         const vStep = texture.height / colHeight;
+    //         let v = 0;
+
+    //         const ry = 1 / currentIZ;
+    //         const shade = 255 - ry * 0.15;
+
+    //         for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
+    //             // const texY = (v | 0) % texture.height;
+    //             let texY = v | 0;
+    //             if (texY >= texture.height) texY -= texture.height;
+
+    //             const i = (texY * texture.width + wrappedTexX) * 4;
+
+    //             if (!(isPortal && depth >= zBuffer[x])) {
+    //                 putPixelZ(
+    //                     x, y, depth,
+    //                     (texture.data[i] * shade) >> 8,
+    //                     (texture.data[i + 1] * shade) >> 8,
+    //                     (texture.data[i + 2] * shade) >> 8
+    //                 );
+    //             }
+    //             v += vStep;
+    //         }
+    //     }
+    // }

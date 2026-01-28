@@ -988,32 +988,32 @@ class Project3D {
         };
     }
 
-drawSky() {
-    if (!SKY_TEX) return;
+    drawSky() {
+        if (!SKY_TEX) return;
 
-    const skyW = SKY_TEX.width;
-    const skyH = SKY_TEX.height;
+        const skyW = SKY_TEX.width;
+        const skyH = SKY_TEX.height;
 
-    for (let y = 0; y < H; y++) {
-        // vertical mapping across full screen
-        const ty = Math.floor((y / H) * skyH);
+        for (let y = 0; y < H; y++) {
+            // vertical mapping across full screen
+            const ty = Math.floor((y / H) * skyH);
 
-        for (let x = 0; x < W; x++) {
-            // map directly across the full width of the texture
-            const tx = Math.floor((x / W) * skyW);
+            for (let x = 0; x < W; x++) {
+                // map directly across the full width of the texture
+                const tx = Math.floor((x / W) * skyW);
 
-            const src = (ty * skyW + tx) * 4;
+                const src = (ty * skyW + tx) * 4;
 
-            putPixel(
-                x,
-                y,
-                SKY_TEX.data[src],
-                SKY_TEX.data[src + 1],
-                SKY_TEX.data[src + 2]
-            );
+                putPixel(
+                    x,
+                    y,
+                    SKY_TEX.data[src],
+                    SKY_TEX.data[src + 1],
+                    SKY_TEX.data[src + 2]
+                );
+            }
         }
     }
-}
 
 
     drawGun(scale = 0.1) {
@@ -1046,6 +1046,7 @@ drawSky() {
     }
 
 
+
     drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
         if (!texture) return;
 
@@ -1064,51 +1065,72 @@ drawSky() {
         const u1 = 0 * iz1;
         const u2 = texture.width * iz2;
 
+        const topDiff = y2Top - y1Top;
+        const bottomDiff = y2Bottom - y1Bottom;
+        const ryDiff = ry2 - ry1;
+        const izDiff = iz2 - iz1;
+        const uDiff = u2 - u1;
+
+        const texWidth = texture.width;
+        const texHeight = texture.height;
+        const data = texture.data;
+
+        // fixed-point scale for inner loop
+        const FP_SHIFT = 16;
+        const FP_ONE = 1 << FP_SHIFT;
+
         for (let x = x1; x <= x2; x++) {
             const t = (x - x1) / dx;
-            const currentIZ = iz1 + (iz2 - iz1) * t;
-            const currentUZ = u1 + (u2 - u1) * t;
-            const texX = (currentUZ / currentIZ) | 0;
-            // const wrappedTexX = Math.abs(texX % texture.width);
-            let wrappedTexX = texX;
-            if (wrappedTexX >= texture.width) wrappedTexX -= texture.width;
 
-            const top = y1Top + (y2Top - y1Top) * t;
-            const bottom = y1Bottom + (y2Bottom - y1Bottom) * t;
-            const depth = ry1 + t * (ry2 - ry1);
+            const currentIZ = iz1 + izDiff * t;
+            const currentUZ = u1 + uDiff * t;
+
+            let texX = ((currentUZ / currentIZ) | 0);
+            if (texX >= texWidth) texX -= texWidth;
+
+            const top = y1Top + topDiff * t;
+            const bottom = y1Bottom + bottomDiff * t;
 
             if (bottom <= top) continue;
 
-            // Only skip for opaque walls
-            if (!isPortal && depth >= zBuffer[x]) continue;
-            if (!isPortal) zBuffer[x] = depth;
+            const depth = ry1 + ryDiff * t;
+            if (!isPortal) {
+                if (depth >= zBuffer[x]) continue;
+                zBuffer[x] = depth;
+            }
 
             const colHeight = bottom - top;
-            const vStep = texture.height / colHeight;
-            let v = 0;
+            const vStepFP = (texHeight * FP_ONE) / colHeight;
+            let vFP = 0;
 
             const ry = 1 / currentIZ;
             const shade = 255 - ry * 0.15;
 
-            for (let y = Math.floor(top); y < Math.ceil(bottom); y++) {
-                // const texY = (v | 0) % texture.height;
-                let texY = v | 0;
-                if (texY >= texture.height) texY -= texture.height;
+            const yStart = Math.floor(top);
+            const yEnd = Math.ceil(bottom);
 
-                const i = (texY * texture.width + wrappedTexX) * 4;
+            const texWidthMinus1 = texWidth - 1;
+            const texHeightMinus1 = texHeight - 1;
+
+            for (let y = yStart; y < yEnd; y++, vFP += vStepFP) {
+                // fixed-point texY
+                let texY = (vFP >> FP_SHIFT);
+                if (texY > texHeightMinus1) texY = texHeightMinus1;
+
+                const i = (texY * texWidth + texX) << 2; // multiply by 4
 
                 if (!(isPortal && depth >= zBuffer[x])) {
-                    putPixelZ(
-                        x, y, depth,
-                        (texture.data[i] * shade) >> 8,
-                        (texture.data[i + 1] * shade) >> 8,
-                        (texture.data[i + 2] * shade) >> 8
-                    );
+                    const r = (data[i] * shade) >> 8;
+                    const g = (data[i + 1] * shade) >> 8;
+                    const b = (data[i + 2] * shade) >> 8;
+
+                    putPixelZ(x, y, depth, r, g, b);
                 }
-                v += vStep;
             }
         }
     }
+
+
 
     project() {
         if (!p.currentSector) return;
@@ -1140,7 +1162,12 @@ drawSky() {
             }
 
 
+             if (this.displayWireFrame) {
+                this.drawWireframe(floorVert, 0, 0, 255);
+            } else {
+                this.fillPolygonTextured(floorVert, s.fTexture);
 
+            }
 
 
             for (let w of projectedWalls) {
@@ -1177,29 +1204,27 @@ drawSky() {
                     let neighCeil2 = ((H / 2) - (nProjH2 / 2));
 
                     if (nFh < fh) {
-                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), 255, 0, 0);
-                        else this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
+                        // this.drawWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), 255, 0, 0);
+                        this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
                     }
                     if (nCh > ch) {
-                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), 255, 0, 0);
-                        else this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
+                        // this.drawWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), 255, 0, 0);
+                        this.drawTexturedWall(R(w.screenX1), R(neighCeil1), R(curCeil1), R(w.screenX2), R(neighCeil2), R(curCeil2), l.texture, w.ry1, w.ry2, true);
 
                     }
 
                 } else {
                     if (!l.ghost) {
-                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), 255, 0, 0);
-                        else this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
+                        // this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), 255, 0, 0);
+                        this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
                     }
                 }
             }
 
             if (this.displayWireFrame) {
                 this.drawWireframe(ceilingVert, 0, 255, 0);
-                this.drawWireframe(floorVert, 0, 0, 255);
             } else {
                 this.fillPolygonTextured(ceilingVert, s.cTexture);
-                this.fillPolygonTextured(floorVert, s.fTexture);
 
             }
 
