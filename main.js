@@ -91,16 +91,21 @@ function loadTexture(img) {
     return cx.getImageData(0, 0, img.width, img.height);
 }
 
+let skyReady = false;
+
 const wallTexImg = new Image();
 wallTexImg.src = './resource/og-metal-wall.png';
 const ceilTexImg = new Image();
 ceilTexImg.src = './resource/ceiling-2.png';
 const floorTexImg = new Image();
 floorTexImg.src = './resource/floor.png';
+const skyImg = new Image();
+skyImg.src = './resource/sky.png';
 
 let WALL_TEX;
 let FLOOR_TEX;
 let CEIL_TEX;
+let SKY_TEX;
 
 const calcEndPoint = (x1, y1, d, angleInRadians) => {
     let x2 = (x1 + d * Math.cos(angleInRadians));
@@ -344,6 +349,8 @@ class Line {
         this.ox2 = x2;
         this.oy2 = y2;
 
+        this.ghost = false;
+
         this.sector;
 
         this.isPortal = isPortal;
@@ -448,7 +455,10 @@ const sector23 = new Sector(-20, 200, []); // bottom
 
 
 // stairs
-
+const sector24 = new Sector(-40, 200, []);
+const sector25 = new Sector(-60, 200, []);
+const sector26 = new Sector(-80, 200, []);
+const sector27 = new Sector(-100, 200, []);
 
 
 
@@ -477,6 +487,7 @@ const l13 = new Line(48, 160, 180, 160, true, sector1); //l3
 const l14 = new Line(180, 160, 180, 280, true, sector16); // l64.
 const l15 = new Line(180, 280, 48, 280, true, sector5);
 const l16 = new Line(48, 280, 48, 160);
+l16.ghost = true;
 
 sector4.walls = [l13, l14, l15, l16];
 
@@ -604,19 +615,56 @@ const l84 = new Line(450, 160, 450, 40, true, sector18);
 sector21.walls = [l81, l82, l83, l84];
 
 const l85 = new Line(450, 160, 500, 160, true, sector21);
-const l86 = new Line(500, 160, 500, 280); // portal stairs soon
-const l87 = new Line(500, 280, 450, 280, true, sector23);
-const l88 = new Line(450, 280, 450, 160, true, sector19);
+const l86 = new Line(520, 160, 520, 220, true, sector24); // portal stairs soon
+const l87 = new Line(500, 220, 450, 220, true, sector23);
+const l88 = new Line(450, 220, 450, 160, true, sector19);
 
 sector22.walls = [l85, l86, l87, l88];
 
-const l89 = new Line(450, 280, 600, 280, true, sector22);
-const l90 = new Line(600, 280, 600, 350);
+const l89 = new Line(450, 220, 600, 220);
+l89.ghost = true;
+const l90 = new Line(600, 220, 600, 350);
 const l91 = new Line(600, 350, 450, 350);
-const l92 = new Line(450, 350, 450, 280, true, sector20);
+const l92 = new Line(450, 350, 450, 220, true, sector20);
 
 sector23.walls = [l89, l90, l91, l92];
+//
 
+
+// stairs
+
+const l93 = new Line(520, 160, 540, 160);
+l93.ghost = true;
+const l94 = new Line(540, 160, 540, 220, true, sector25);
+const l95 = new Line(540, 220, 520, 220, true, sector23);
+const l96 = new Line(520, 220, 520, 160, true, sector22);
+
+sector24.walls = [l93, l94, l95, l96];
+
+const l97 = new Line(540, 160, 560, 160);
+l97.ghost = true;
+const l98 = new Line(560, 160, 560, 220, true, sector26);
+const l99 = new Line(560, 220, 540, 220, true, sector23);
+const l100 = new Line(540, 220, 540, 160, true, sector24);
+
+sector25.walls = [l97, l98, l99, l100];
+
+const l101 = new Line(560, 160, 580, 160);
+l101.ghost = true;
+const l102 = new Line(580, 160, 580, 220, true, sector27);
+const l103 = new Line(580, 220, 560, 220, true, sector23);
+const l104 = new Line(560, 220, 560, 160, true, sector25);
+
+sector26.walls = [l101, l102, l103, l104];
+
+const l105 = new Line(580, 160, 580, 160);
+l105.ghost = true;
+const l106 = new Line(580, 160, 580, 220);
+l106.ghost = true;
+const l107 = new Line(580, 220, 580, 220, true, sector23);
+const l108 = new Line(580, 220, 580, 160, true, sector26);
+
+sector27.walls = [l105, l106, l107, l108];
 //
 
 const sectors = [
@@ -629,7 +677,10 @@ const sectors = [
     sector15, sector16, sector17,
 
     sector18, sector19, sector20,
-    sector21, sector22, sector23
+    sector21, sector22, sector23,
+
+    sector24, sector25, sector26,
+    sector27
 ];
 
 const map = [];
@@ -712,6 +763,10 @@ ceilTexImg.onload = () => {
     CEIL_TEX = loadTexture(ceilTexImg);
     sectors.forEach((s) => s.cTexture = CEIL_TEX);
 }
+skyImg.onload = () => {
+    SKY_TEX = loadTexture(skyImg);
+
+}
 
 
 class Project3D {
@@ -720,7 +775,7 @@ class Project3D {
         this.halfSW = W / 2;
         this.fovFactor = this.halfSW / Math.tan(this.fovInRad / 2);
         this.NEAR = 10;
-        this.displayWireFrame = false;;
+        this.displayWireFrame = false;
     }
 
     depthShade(depth) {
@@ -943,6 +998,41 @@ class Project3D {
         };
     }
 
+drawSky() {
+    if (!SKY_TEX) return;
+
+    const skyW = SKY_TEX.width;
+    const skyH = SKY_TEX.height;
+
+    const angleOffset =
+        ((p.angle % 360 + 360) % 360) / 360 * skyW;
+
+    for (let y = 0; y < H; y++) {
+
+        // map sky vertically across full screen
+        const ty = Math.floor((y / H) * skyH) % skyH;
+
+        for (let x = 0; x < W; x++) {
+
+            const tx = Math.floor(
+                (x / W) * skyW + angleOffset
+            ) % skyW;
+
+            const src = (ty * skyW + tx) * 4;
+
+            putPixel(
+                x,
+                y,
+                SKY_TEX.data[src],
+                SKY_TEX.data[src + 1],
+                SKY_TEX.data[src + 2]
+            );
+        }
+    }
+}
+
+
+
     drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
         if (!texture) return;
 
@@ -1038,6 +1128,8 @@ class Project3D {
 
 
 
+
+
             for (let w of projectedWalls) {
                 const l = w.wall;
 
@@ -1072,7 +1164,6 @@ class Project3D {
                     let neighCeil2 = ((H / 2) - (nProjH2 / 2));
 
                     if (nFh < fh) {
-
                         if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), 255, 0, 0);
                         else this.drawTexturedWall(R(w.screenX1), R(neighFloor1), R(curFloor1), R(w.screenX2), R(neighFloor2), R(curFloor2), l.texture, w.ry1, w.ry2, true);
                     }
@@ -1083,13 +1174,12 @@ class Project3D {
                     }
 
                 } else {
-                    if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), 255, 0, 0);
-                    else this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
-
+                    if (!l.ghost) {
+                        if (this.displayWireFrame) this.drawWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), 255, 0, 0);
+                        else this.drawTexturedWall(R(w.screenX1), R(w.sy1T), R(w.screenY1), R(w.screenX2), R(w.sy2T), R(w.screenY2), l.texture, w.ry1, w.ry2);
+                    }
                 }
             }
-
-
 
             if (this.displayWireFrame) {
                 this.drawWireframe(ceilingVert, 0, 255, 0);
@@ -1099,8 +1189,6 @@ class Project3D {
                 this.fillPolygonTextured(floorVert, s.fTexture);
 
             }
-
-
 
         }
     }
@@ -1138,13 +1226,24 @@ const update = () => {
             if (p.isMoving) l.checkIsVisible();
         });
     } else {
+        // project3D.drawSky();
         project3D.project();
         map.forEach(l => l.checkIsVisible());
     }
 }
 
+function clearScreen(r, g, b, a = 255) {
+    for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i]     = r;
+        pixels[i + 1] = g;
+        pixels[i + 2] = b;
+        pixels[i + 3] = a;
+    }
+}
+
+
 const render = (currentTime) => {
-    pixels.fill(0);
+    pixels.fill(0)
 
     update();
 
@@ -1182,6 +1281,7 @@ const render = (currentTime) => {
 };
 
 function engine(currentTime) {
+
     render(currentTime);
     requestAnimationFrame(engine);
 }
