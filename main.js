@@ -99,13 +99,22 @@ const ceilTexImg = new Image();
 ceilTexImg.src = './resource/ceiling-2.png';
 const floorTexImg = new Image();
 floorTexImg.src = './resource/floor.png';
+const blueFloorTexImg = new Image();
+blueFloorTexImg.src = './resource/blue-floor.png';
 const skyImg = new Image();
-skyImg.src = './resource/sky.png';
+skyImg.src = './resource/sky2.png';
+const graniteTexImg = new Image();
+graniteTexImg.src = './resource/granite1.png';
+const gunTexImg = new Image();
+gunTexImg.src = './resource/fps-gun.png';
 
 let WALL_TEX;
 let FLOOR_TEX;
 let CEIL_TEX;
 let SKY_TEX;
+let BLUE_FLOOR_TEX;
+let GRANITE_TEX;
+let GUN_TEX;
 
 const calcEndPoint = (x1, y1, d, angleInRadians) => {
     let x2 = (x1 + d * Math.cos(angleInRadians));
@@ -692,42 +701,6 @@ for (let s of sectors) {
 }
 
 const scale = 1.5;
-// const sector1 = new Sector(0, 130, []); // Normal room
-// const sector2 = new Sector(-10, 100, []); // Raised platform
-// const sector3 = new Sector(-20, 200, []); // Raised platform
-
-// const l1 = new Line(20, 15, 30, 5);
-// const l2 = new Line(30, 5, 50, 5);
-// const l3 = new Line(50, 5, 60, 15);
-// const l4 = new Line(60, 15, 55, 30);
-// const l5 = new Line(55, 30, 30, 30, true, sector2);
-// const l6 = new Line(30, 30, 20, 15);
-
-// sector1.walls = [l1, l2, l3, l4, l5, l6];
-
-// const l5b = new Line(30, 30, 55, 30, true, sector1);
-// const l7 = new Line(55, 30, 65, 40);
-// const l8 = new Line(65, 40, 60, 55);
-// const l9 = new Line(60, 55, 30, 55, true, sector3);
-// const l10 = new Line(30, 55, 20, 45);
-// const l11 = new Line(20, 45, 30, 30); // Connects back to the start of l5b
-
-// sector2.walls = [l5b, l7, l8, l9, l10, l11];
-
-// const l9b = new Line(60, 55, 30, 55, true, sector2); // top line
-// const l12 = new Line(60, 55, 70, 75); // right line
-// const l13 = new Line(70, 75, 60, 85); // right line
-// const l14 = new Line(60, 85, 30, 85); // bottom line
-// const l15 = new Line(30, 85, 20, 75); // left line
-// const l16 = new Line(20, 75, 30, 55); // left line
-
-// sector3.walls = [l9b, l12, l13, l14, l15, l16];
-
-// const map = [
-//     l1, l2, l3, l4, l5, l6,
-//     l5b, l7, l8, l9, l10, l11,
-//     l9b, l12, l13, l14, l15, l16
-// ];
 
 
 let minX = Infinity;
@@ -745,9 +718,6 @@ map.forEach(line => {
     line.y2 = (line.y2 - minY) * scale;
 });
 
-// const sectors = [sector1, sector2, sector3];
-
-
 sectors.forEach(sector => { sector.assignSectorToWalls(); });
 
 
@@ -759,13 +729,33 @@ floorTexImg.onload = () => {
     FLOOR_TEX = loadTexture(floorTexImg);
     sectors.forEach((s) => s.fTexture = FLOOR_TEX);
 }
+floorTexImg.onload = () => {
+    FLOOR_TEX = loadTexture(floorTexImg);
+    sectors.forEach((s) => s.fTexture = FLOOR_TEX);
+}
 ceilTexImg.onload = () => {
     CEIL_TEX = loadTexture(ceilTexImg);
     sectors.forEach((s) => s.cTexture = CEIL_TEX);
 }
-skyImg.onload = () => {
-    SKY_TEX = loadTexture(skyImg);
+skyImg.onload = () => { SKY_TEX = loadTexture(skyImg); }
+blueFloorTexImg.onload = () => {
+    BLUE_FLOOR_TEX = loadTexture(blueFloorTexImg);
+    sector17.fTexture = BLUE_FLOOR_TEX;
+    sector16.fTexture = BLUE_FLOOR_TEX;
+    sector14.fTexture = BLUE_FLOOR_TEX;
+    sector12.fTexture = BLUE_FLOOR_TEX;
+    sector10.fTexture = BLUE_FLOOR_TEX;
+};
+graniteTexImg.onload = () => {
+    GRANITE_TEX = loadTexture(graniteTexImg);
 
+    sector16.cTexture = GRANITE_TEX;
+    sector14.cTexture = GRANITE_TEX;
+    sector12.cTexture = GRANITE_TEX;
+    sector10.cTexture = GRANITE_TEX;
+}
+gunTexImg.onload = () => {
+    GUN_TEX = loadTexture(gunTexImg);
 }
 
 
@@ -1004,19 +994,13 @@ drawSky() {
     const skyW = SKY_TEX.width;
     const skyH = SKY_TEX.height;
 
-    const angleOffset =
-        ((p.angle % 360 + 360) % 360) / 360 * skyW;
-
     for (let y = 0; y < H; y++) {
-
-        // map sky vertically across full screen
-        const ty = Math.floor((y / H) * skyH) % skyH;
+        // vertical mapping across full screen
+        const ty = Math.floor((y / H) * skyH);
 
         for (let x = 0; x < W; x++) {
-
-            const tx = Math.floor(
-                (x / W) * skyW + angleOffset
-            ) % skyW;
+            // map directly across the full width of the texture
+            const tx = Math.floor((x / W) * skyW);
 
             const src = (ty * skyW + tx) * 4;
 
@@ -1031,6 +1015,35 @@ drawSky() {
     }
 }
 
+
+    drawGun(scale = 0.1) {
+        if (!GUN_TEX) return;
+
+        const gunW = Math.floor(GUN_TEX.width * scale);
+        const gunH = Math.floor(GUN_TEX.height * scale);
+
+        // bottom-center position
+        const startX = Math.floor((W - gunW) / 2);
+        const startY = H - gunH;
+
+        for (let y = 0; y < gunH; y++) {
+            // map to source texture
+            const srcY = Math.floor(y / scale);
+            for (let x = 0; x < gunW; x++) {
+                const srcX = Math.floor(x / scale);
+                const src = (srcY * GUN_TEX.width + srcX) * 4;
+
+                const r = GUN_TEX.data[src];
+                const g = GUN_TEX.data[src + 1];
+                const b = GUN_TEX.data[src + 2];
+                const a = GUN_TEX.data[src + 3]; // transparency
+
+                if (a > 0) {
+                    putPixel(startX + x, startY + y, r, g, b);
+                }
+            }
+        }
+    }
 
 
     drawTexturedWall(x1, y1Top, y1Bottom, x2, y2Top, y2Bottom, texture, ry1, ry2, isPortal = false) {
@@ -1226,15 +1239,16 @@ const update = () => {
             if (p.isMoving) l.checkIsVisible();
         });
     } else {
-        // project3D.drawSky();
+        project3D.drawSky();
         project3D.project();
+        project3D.drawGun();
         map.forEach(l => l.checkIsVisible());
     }
 }
 
 function clearScreen(r, g, b, a = 255) {
     for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i]     = r;
+        pixels[i] = r;
         pixels[i + 1] = g;
         pixels[i + 2] = b;
         pixels[i + 3] = a;
