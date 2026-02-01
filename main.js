@@ -36,7 +36,6 @@ let pixels = imageData.data;
 
 let zBuffer = new Float32Array(W * H);
 
-
 function writeUI() {
     ctx.fillStyle = 'white';
     ctx.font = `13px consolas`;
@@ -1005,7 +1004,7 @@ class Project3D {
     }
 
 
-    drawGun(scale = 0.1) {
+    drawGun(scale = 0.2) {
         if (!GUN_TEX) return;
 
         const gunW = Math.floor(GUN_TEX.width * scale);
