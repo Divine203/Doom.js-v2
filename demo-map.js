@@ -100,3 +100,31 @@
     //         }
     //     }
     // }
+
+
+    // function putPixelZ(x, y, z, r, g, b) {
+//     if (x < 0 || x >= W || y < 0 || y >= H) return;
+//     const idx = y * W + x;
+//     if (z >= project3D.zBuffer[idx]) return;
+//     project3D.zBuffer[idx] = z;
+
+//     // --- FOG CALCULATION ---
+//     const maxDist = 700; // Anything beyond this is pitch black
+//     const minDist = 50;  // Anything closer than this is full brightness
+
+//     // Calculate shade: 1.0 (close) to 0.0 (far)
+//     let shade = (maxDist - z) / (maxDist - minDist);
+
+//     // Clamp shade between 0 and 1
+//     if (shade < 0) shade = 0;
+//     if (shade > 1) shade = 1;
+
+//     // Apply shade to colors
+//     const i = idx * 4;
+//     pixels[i] = r * shade;
+//     pixels[i + 1] = g * shade;
+//     pixels[i + 2] = b * shade;
+//     pixels[i + 3] = 255;
+// }
+
+

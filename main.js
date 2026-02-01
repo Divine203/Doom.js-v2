@@ -16,8 +16,12 @@ let SCALE = 1;
 
 ctx.imageSmoothingEnabled = false;
 
-let W = c.width / SCALE;
-let H = c.height / SCALE;
+const R = (val) => {
+    return Math.round(val);
+}
+
+let W = R(c.width / SCALE);
+let H = R(c.height / SCALE);
 
 let lastTime = 0;
 let fps = 0;
@@ -32,9 +36,6 @@ let pixels = imageData.data;
 
 let zBuffer = new Float32Array(W * H);
 
-const R = (val) => {
-    return Math.round(val);
-}
 
 function writeUI() {
     ctx.fillStyle = 'white';
@@ -729,10 +730,6 @@ floorTexImg.onload = () => {
     FLOOR_TEX = loadTexture(floorTexImg);
     sectors.forEach((s) => s.fTexture = FLOOR_TEX);
 }
-floorTexImg.onload = () => {
-    FLOOR_TEX = loadTexture(floorTexImg);
-    sectors.forEach((s) => s.fTexture = FLOOR_TEX);
-}
 ceilTexImg.onload = () => {
     CEIL_TEX = loadTexture(ceilTexImg);
     sectors.forEach((s) => s.cTexture = CEIL_TEX);
@@ -764,7 +761,7 @@ class Project3D {
         this.fovInRad = (p.FOV) * (Math.PI / 180);
         this.halfSW = W / 2;
         this.fovFactor = this.halfSW / Math.tan(this.fovInRad / 2);
-        this.NEAR = 10;
+        this.NEAR = 30;
         this.displayWireFrame = false;
     }
 
@@ -902,12 +899,7 @@ class Project3D {
         let rx2 = dx2 * cos + dy2 * sin;
         let ry2 = dx2 * sin - dy2 * cos;
 
-
         if (ry1 <= this.NEAR && ry2 <= this.NEAR) return;
-
-        let wx1 = l.x1, wy1 = l.y1;
-        let wx2 = l.x2, wy2 = l.y2;
-
         if (ry1 < this.NEAR) ry1 = this.NEAR;
         if (ry2 < this.NEAR) ry2 = this.NEAR;
 
@@ -931,12 +923,9 @@ class Project3D {
             screenX1, screenX2,
             sy1T, sy2T,
             screenY1, screenY2,
-            ry1, ry2,
-            wx1, wy1, wx2, wy2,
-            fh, ch
+            ry1, ry2
         });
     }
-
 
     projectSectorEdge(l, sector) {
         const eyeHeightInWorld = p.currentSector.fh + p.eyeLevel;
@@ -1161,15 +1150,6 @@ class Project3D {
                 floorVert.push({ x: c.screenX2, y: c.screenY2, wx: c.wx2, wy: c.wy2, ry: c.ry2 });
             }
 
-
-             if (this.displayWireFrame) {
-                this.drawWireframe(floorVert, 0, 0, 255);
-            } else {
-                this.fillPolygonTextured(floorVert, s.fTexture);
-
-            }
-
-
             for (let w of projectedWalls) {
                 const l = w.wall;
 
@@ -1222,6 +1202,14 @@ class Project3D {
             }
 
             if (this.displayWireFrame) {
+                this.drawWireframe(floorVert, 0, 0, 255);
+            } else {
+                this.fillPolygonTextured(floorVert, s.fTexture);
+
+            }
+
+
+            if (this.displayWireFrame) {
                 this.drawWireframe(ceilingVert, 0, 255, 0);
             } else {
                 this.fillPolygonTextured(ceilingVert, s.cTexture);
@@ -1271,16 +1259,6 @@ const update = () => {
     }
 }
 
-function clearScreen(r, g, b, a = 255) {
-    for (let i = 0; i < pixels.length; i += 4) {
-        pixels[i] = r;
-        pixels[i + 1] = g;
-        pixels[i + 2] = b;
-        pixels[i + 3] = a;
-    }
-}
-
-
 const render = (currentTime) => {
     pixels.fill(0)
 
@@ -1289,7 +1267,7 @@ const render = (currentTime) => {
     bctx.putImageData(imageData, 0, 0);
 
     ctx.clearRect(0, 0, c.width, c.height);
-    ctx.drawImage(buffer, 0, 0, W * SCALE, H * SCALE);
+    ctx.drawImage(buffer, 0, 0, R(W * SCALE), R(H * SCALE));
 
 
     const deltaTime = currentTime - lastTime;
