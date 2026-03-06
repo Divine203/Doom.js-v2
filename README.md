@@ -6,5 +6,5 @@
 >
 > ***This is not my first attempt at this project. I made a version prior to this that failed, hence the "v2"***
 > 
-## Set
+## Setup
   Run `index.html` with live server
