@@ -3,7 +3,8 @@
 
 ## Doom.js
 > **A replica of the 1993 DOOM engine in pure Javascript**
-> This is not my first attempt at this project. I made a version prior to this that failed, hence the "v2".
-
-## Setup
+>
+> ***This is not my first attempt at this project. I made a version prior to this that failed, hence the "v2"***
+> 
+## Set
   Run `index.html` with live server
